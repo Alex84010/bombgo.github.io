@@ -75,9 +75,9 @@
 
       platforms = this.physics.add.staticGroup();
       platforms.create(400, 568, 'ground').setScale(2).refreshBody();
-      platforms.create(60, 420, 'ground');
-      platforms.create(650, 320, 'ground');
-      platforms.create(400, 200, 'ground');
+      platforms.create(185, 380, 'ground');
+      platforms.create(700, 270, 'ground');
+      platforms.create(400, 150, 'ground');
 
       player = this.physics.add.sprite(100, 450, 'dude');
       player.setBounce(0.2);
@@ -117,7 +117,7 @@
       });
 
       bombs = this.physics.add.group();
-      for (let i = 0; i < 8; i++) spawnBomb(this);
+      for (let i = 0; i < 6; i++) spawnBomb(this);
 
       this.physics.add.collider(player, platforms);
       this.physics.add.collider(stars, platforms);
@@ -244,5 +244,6 @@
   </script>
 
 </body>
+
 
 </html>
