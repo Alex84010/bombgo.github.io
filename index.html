@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Menu</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png">
+  <style>
+    body {
+      background: #333;
+      color: white;
+      font-family: Arial;
+      text-align: center;
+    }
+
+    .levels {
+      display: grid;
+      grid-template-columns: repeat(5, 100px);
+      gap: 20px;
+      justify-content: center;
+      margin-top: 50px;
+    }
+
+    .level img {
+      width: 105px;
+      opacity: 0.4;
+    }
+
+    .level.active img {
+      opacity: 1;
+      cursor: pointer;
+    }
+
+    .personnage-hobby img {
+      width: 10%;
+      height: auto;
+      position: fixed;
+      bottom: 320px;
+      right: 140px;
+    }
+
+    .platforme-hobby img {
+      width: 20%;
+      height: auto;
+      position: fixed;
+      bottom: 140px;
+      right: 60px;
+    }
+
+    #toggle-personnage {
+      display: none;
+    }
+
+    #toggle-personnage:checked+label img {
+      content: url("assets/personnage2.png");
+      cursor: pointer;
+      width: 9.7%;
+      right: 143.5px;
+    }
+
+    .personnage-hobby img {
+      width: 10%;
+      position: fixed;
+      bottom: 320px;
+      right: 140px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Niveaux</h1>
+  <img src="assets/logovierge.png" alt="Niveaux" style="cursor:pointer; width:150px;"
+    onclick="window.location.href='./niv1a10.html'">
+
+  <img src="assets/home.png" alt="Home" style="cursor:pointer; width:105px; position: fixed; top: 10px; left: 10px;"
+    onclick="window.location.href='./index.html'">
+  <img src="assets/retour.png" alt="Retour"
+    style="cursor:pointer; width:105px; position: fixed; top: 10px; left: 125px;"
+    onclick="window.location.href='./index.html'">
+
+  <h1>Mode solo</h1>
+  <img src="assets/logosolo.png" alt="Mode solo" style="cursor:pointer; width:150px;"
+    onclick="window.location.href='solo.html'">
+  <h1>Editeur de niveau</h1>
+  <img src="assets/logoediteur.png" alt="Editeur de niveau" style="cursor:pointer; width:150px;"
+    onclick="window.location.href='editeur.html'">
+  <img src="assets/logovierge.png" alt="Mes niveaux" style="cursor:pointer; width:150px;"
+    onclick="window.location.href='mesniveaux.html'">
+
+  <div class="personnage-hobby">
+    <input type="checkbox" id="toggle-personnage">
+    <label for="toggle-personnage">
+      <img src="assets/personnage.png" alt="Personnage">
+    </label>
+  </div>
+
+
+  <div class="platforme-hobby">
+    <img src="./assets/platformehobby.png" alt="Platforme">
+  </div>
+
+  <script>
+
+    for (let i = 1; i <= 10; i++) {
+      const level = document.createElement('div');
+      level.className = 'level';
+
+      const img = document.createElement('img');
+
+      const isUnlocked =
+        i === 1 || localStorage.getItem('level' + (i - 1)) === 'done';
+
+      if (isUnlocked) {
+        level.classList.add('active');
+        img.src = localStorage.getItem('level' + i) === 'done'
+          ? 'assets/levelgood.png'
+          : 'assets/levelbad.png';
+
+        img.onclick = () => {
+          window.location.href = `level${i}.html`;
+        };
+      } else {
+        img.src = 'assets/levelbad.png';
+      }
+
+      level.appendChild(img);
+      levelsDiv.appendChild(level);
+    }
+
+  </script>
+
+</body>
+
+</html>
