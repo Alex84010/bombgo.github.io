@@ -211,12 +211,17 @@
 
             // ===== EASTER EGG: Traverser les plateformes par le bas =====
             if (easterEggActivated) {
-                // Permettre de traverser les plateformes par le bas
+                // Permettre de traverser les plateformes par le bas uniquement
                 platformsArray.forEach(platform => {
-                    // Si le joueur monte (vélocité négative) et qu'il est en dessous de la plateforme
-                    if (player.body.velocity.y < 0 && player.y > platform.y) {
-                        // Désactiver temporairement la collision
-                        this.physics.world.removeCollider(this.physics.add.collider(player, platform));
+                    let platformBody = platform.body;
+                    
+                    // Si le joueur est en dessous de la plateforme et monte
+                    if (player.y > platform.y + 20 && player.body.velocity.y < 0) {
+                        // Désactiver collision uniquement par le bas
+                        platformBody.checkCollision.down = false;
+                    } else {
+                        // Réactiver collision normale
+                        platformBody.checkCollision.down = true;
                     }
                 });
             }
@@ -228,8 +233,8 @@
 
             easterEggActivated = true;
 
-            // Rendre le joueur bleu ciel clair
-            player.setTint(0x87CEEB);
+            // Rendre le joueur bleu foncé
+            player.setTint(0x4169E1);
 
             // Afficher le message
             easterEggText.setVisible(true);
