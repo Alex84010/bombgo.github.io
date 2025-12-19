@@ -215,11 +215,8 @@
                 platformsArray.forEach(platform => {
                     // Si le joueur monte (vélocité négative) et qu'il est en dessous de la plateforme
                     if (player.body.velocity.y < 0 && player.y > platform.y) {
-                        platform.body.checkCollision.down = false;
-                        platform.body.checkCollision.up = false;
-                    } else {
-                        platform.body.checkCollision.down = true;
-                        platform.body.checkCollision.up = true;
+                        // Désactiver temporairement la collision
+                        this.physics.world.removeCollider(this.physics.add.collider(player, platform));
                     }
                 });
             }
@@ -231,8 +228,8 @@
 
             easterEggActivated = true;
 
-            // Rendre le joueur bleu
-            player.setTint(0x0000ff);
+            // Rendre le joueur bleu ciel clair
+            player.setTint(0x87CEEB);
 
             // Afficher le message
             easterEggText.setVisible(true);
@@ -313,4 +310,4 @@
     </script>
 </body>
 
-  </html>
+</html>
