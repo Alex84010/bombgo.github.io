@@ -161,33 +161,39 @@
             createPlatformsForLevel(0);
 
             // Créer le personnage du joueur
-            player = this.physics.add.sprite(100, 450, 'dude');
-            player.setBounce(0.2); // Le personnage rebondit légèrement
-            player.setCollideWorldBounds(true); // Le personnage ne peut pas sortir de l'écran
+player = this.physics.add.sprite(100, 450, 'dude');
+
+player.setScale(0.18);   // ajuste entre 0.15 et 0.22
+player.setBounce(0.2);
+player.setCollideWorldBounds(true);
+
+// Hitbox propre (indépendante du visuel)
+player.body.setSize(120, 260);
+player.body.setOffset(100, 200);
 
             // Créer l'animation pour se déplacer vers la gauche
-            this.anims.create({
-                key: 'left',
-                frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 3 }),
-                frameRate: 10,
-                repeat: -1
-            });
+this.anims.create({
+    key: 'left',
+    frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 3 }),
+    frameRate: 10,
+    repeat: -1
+});
 
             // Créer l'animation pour être immobile
-            this.anims.create({
-                key: 'turn',
-                frames: [{ key: 'dude', frame: 4 }],
-                frameRate: 20
-            });
+this.anims.create({
+    key: 'turn',
+    frames: [{ key: 'dude', frame: 4 }],
+    frameRate: 20
+});
 
             // Créer l'animation pour se déplacer vers la droite
-            this.anims.create({
-                key: 'right',
-                frames: this.anims.generateFrameNumbers('dude', { start: 5, end: 8 }),
-                frameRate: 10,
-                repeat: -1
-            });
-
+this.anims.create({
+    key: 'right',
+    frames: this.anims.generateFrameNumbers('dude', { start: 5, end: 8 }),
+    frameRate: 10,
+    repeat: -1
+});
+            
             // Récupérer les touches du clavier
             cursors = this.input.keyboard.createCursorKeys();
 
@@ -315,3 +321,4 @@
 
 
 </html>
+
