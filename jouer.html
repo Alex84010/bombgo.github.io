@@ -87,10 +87,10 @@
       this.load.image('clock', 'assets/horloge.png');
 
       const selectedChar = localStorage.getItem('selectedCharacter') || '1';
-this.load.spritesheet('dude', `assets/personnageframe${selectedChar}.png`, {
-    frameWidth: 160,
-    frameHeight: 230
-});
+      this.load.spritesheet('dude', `assets/personnageframe${selectedChar}.png`, {
+        frameWidth: 160,
+        frameHeight: 230
+      });
     }
 
     function create() {
@@ -137,7 +137,8 @@ this.load.spritesheet('dude', `assets/personnageframe${selectedChar}.png`, {
       });
 
       player = this.physics.add.sprite(100, 450, 'dude');
-      player.setBounce(0.04);
+      player.setScale(0.25); // 👈 Réduire la taille comme dans solo.html
+      player.setBounce(0.2); // 👈 Même bounce que solo.html
       player.setCollideWorldBounds(true);
       player.setDepth(20);
 
