@@ -22,8 +22,11 @@
     }
     .niveau img {
       width: 180px;
+      height: 135px;
       border-radius: 10px;
       border: 2px solid #555;
+      object-fit: cover;
+      background: #000;
     }
   </style>
 </head>
@@ -41,22 +44,42 @@
   <script>
     const liste = document.getElementById("liste");
     const niveaux = JSON.parse(localStorage.getItem("mesNiveaux")) || [];
+    
+    console.log("Niveaux trouvés:", niveaux);
+    console.log("Nombre de niveaux:", niveaux.length);
+    
     if (niveaux.length === 0) {
       liste.innerHTML = "<p>Aucun niveau publié</p>";
+    } else {
+      niveaux.forEach((niveau, index) => {
+        console.log(`Niveau ${index}:`, niveau);
+        console.log(`Image du niveau ${index}:`, niveau.image ? "PRÉSENTE" : "ABSENTE");
+        
+        const div = document.createElement("div");
+        div.className = "niveau";
+        
+        const img = document.createElement("img");
+        img.src = niveau.image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='135'%3E%3Crect fill='%23333' width='180' height='135'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='%23fff'%3EErreur%3C/text%3E%3C/svg%3E";
+        img.alt = niveau.nom;
+        img.onerror = function() {
+          console.error(`Erreur de chargement de l'image pour: ${niveau.nom}`);
+          this.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='135'%3E%3Crect fill='%23555' width='180' height='135'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='%23fff' font-size='14'%3EImage introuvable%3C/text%3E%3C/svg%3E";
+        };
+        
+        const p = document.createElement("p");
+        p.textContent = niveau.nom;
+        
+        div.appendChild(img);
+        div.appendChild(p);
+        
+        div.onclick = () => {
+          localStorage.setItem("niveauAJouer", index);
+          window.location.href = "jouer.html";
+        };
+        
+        liste.appendChild(div);
+      });
     }
-    niveaux.forEach((niveau, index) => {
-      const div = document.createElement("div");
-      div.className = "niveau";
-      div.innerHTML = `
-        <img src="${niveau.image}" alt="${niveau.nom}">
-        <p>${niveau.nom}</p>
-      `;
-      div.onclick = () => {
-        localStorage.setItem("niveauAJouer", index);
-        window.location.href = "jouer.html";
-      };
-      liste.appendChild(div);
-    });
   </script>
 </body>
 </html>
