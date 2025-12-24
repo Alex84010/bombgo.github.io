@@ -2,360 +2,235 @@
 <html lang="fr">
 
 <head>
-  <meta charset="UTF-8">
-  <title>Jouer le niveau</title>
-  <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png">
-  <script src="https://cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
-
-  <style>
-    body {
-      margin: 0;
-      background: #444;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-
-    canvas {
-      border: 4px solid #222;
-    }
-  </style>
+  <meta charset="UTF-8">
+  <title>Jouer le niveau</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png">
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+  <style>
+    body { margin: 0; background: #222; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+    canvas { border: 4px solid #000; }
+  </style>
 </head>
 
 <body>
+  <img src="assets/logohome.png" style="cursor:pointer;width:105px;position:fixed;top:10px;left:10px;z-index:100;" onclick="window.location.href='./index.html'">
+  <img src="assets/logoretour.png" style="cursor:pointer;width:105px;position:fixed;top:10px;left:125px;z-index:100;" onclick="window.location.href='./mesniveaux.html'">
+  <img src="assets/logorefresh.png" style="cursor:pointer;width:105px;position:fixed;top:10px;right:10px;z-index:100;" onclick="window.location.reload()">
 
-  <!-- Boutons -->
-  <img src="assets/logohome.png" style="cursor:pointer;width:105px;position:fixed;top:10px;left:10px;"
-    onclick="window.location.href='./index.html'">
+  <script>
+    const index = localStorage.getItem("niveauAJouer");
+    const niveaux = JSON.parse(localStorage.getItem("mesNiveaux"));
 
-  <img src="assets/logoretour.png" style="cursor:pointer;width:105px;position:fixed;top:10px;left:125px;"
-    onclick="window.location.href='./mesniveaux.html'">
+    if (!niveaux || index === null) {
+      alert("Aucun niveau à jouer");
+      window.location.href = "mesniveaux.html";
+    }
 
-  <img src="assets/logorefresh.png" style="cursor:pointer;width:105px;position:fixed;top:10px;right:10px;"
-    onclick="window.location.href='./jouer.html'">
+    const niveau = niveaux[index];
+    const data = niveau.data;
+    const params = data.params || {};
 
-  <script>
-    // ================= RECUPERATION DU NIVEAU =================
-    const index = localStorage.getItem("niveauAJouer");
-    const niveaux = JSON.parse(localStorage.getItem("mesNiveaux"));
+    const config = {
+      type: Phaser.AUTO,
+      width: 800,
+      height: 600,
+      physics: {
+        default: 'arcade',
+        arcade: { gravity: { y: 600 }, debug: false }
+      },
+      scene: { preload, create, update }
+    };
 
-    if (!niveaux || index === null) {
-      alert("Aucun niveau à jouer");
-      window.location.href = "mesniveaux.html";
-    }
+    new Phaser.Game(config);
 
-    const niveau = niveaux[index];
-    const data = niveau.data;
-    const params = data.params || {};
+    let player, cursors, platforms, trampolines, stars, bombs, clocks;
+    let lifeIcons = [];
+    let gameOver = false;
+    let timeFrozen = false;
+    let frozenTimeRemaining = 0;
+    const MAX_HALF_LIVES = params.halfLives || 8;
+    let halfLives = MAX_HALF_LIVES;
+    let elapsedTime = 0;
+    const survivalTime = params.survivalTime || 120;
+    let timerText, freezeText;
 
-    // ================= CONFIG =================
-    const config = {
-      type: Phaser.AUTO,
-      width: 800,
-      height: 600,
-      physics: {
-        default: 'arcade',
-        arcade: { gravity: { y: 300 }, debug: false }
-      },
-      scene: { preload, create, update }
-    };
+    function preload() {
+      this.load.image('sky', 'assets/sky.png');
+      this.load.image('ground', 'assets/platform.png');
+      this.load.image('star', 'assets/piece.png');
+      this.load.image('bomb', 'assets/bombe.png');
+      this.load.image('vie', 'assets/vie1.png');
+      this.load.image('demivie', 'assets/vie3.png');
+      this.load.image('novie', 'assets/vie2.png');
+      this.load.image('tremplin', 'assets/tremplin.png');
+      this.load.image('clock', 'assets/horloge.png');
+      const selectedChar = localStorage.getItem('selectedCharacter') || '1';
+      this.load.spritesheet('dude', `assets/personnageframe${selectedChar}.png`, { frameWidth: 320, frameHeight: 480 });
+    }
 
-    new Phaser.Game(config);
+    function create() {
+      // 1. Fond
+      this.add.image(400, 300, 'sky');
 
-    // ================= VARIABLES =================
-    let player, cursors;
-    let platforms, trampolines, stars, bombs, clocks;
-    let lifeIcons = [];
-    let gameOver = false;
-    let timeFrozen = false;
-    let frozenTimeRemaining = 0;
+      // 2. Création des groupes (IMPORTANT : Avant les collisions)
+      platforms = this.physics.add.staticGroup();
+      trampolines = this.physics.add.staticGroup();
+      stars = this.physics.add.group();
+      bombs = this.physics.add.group();
+      clocks = this.physics.add.group();
 
-    const MAX_HALF_LIVES = params.halfLives || 8;
-    let halfLives = MAX_HALF_LIVES;
+      // 3. Sol de sécurité + Plateformes custom
+      platforms.create(400, 584, 'ground').setScale(2).refreshBody();
+      if (data.platforms) {
+        data.platforms.forEach(p => {
+          if (p.y < 570) {
+            platforms.create(p.x, p.y, 'ground').setScale(p.scaleX, p.scaleY).refreshBody();
+          }
+        });
+      }
 
-    let elapsedTime = 0;
-    const survivalTime = params.survivalTime || 120;
-    let timerText, freezeText;
+      // 4. Tremplins
+      if (data.trampolines) {
+        data.trampolines.forEach(t => {
+          trampolines.create(t.x, t.y, 'tremplin').setScale(0.04).refreshBody();
+        });
+      }
 
-    // ================= PRELOAD =================
-    function preload() {
-      this.load.image('sky', 'assets/sky.png');
-      this.load.image('ground', 'assets/platform.png');
-      this.load.image('star', 'assets/piece.png');
-      this.load.image('bomb', 'assets/bombe.png');
-      this.load.image('vie', 'assets/vie1.png');
-      this.load.image('demivie', 'assets/vie3.png');
-      this.load.image('novie', 'assets/vie2.png');
-      this.load.image('tremplin', 'assets/tremplin.png');
-      this.load.image('clock', 'assets/horloge.png');
+      // 5. Joueur
+      player = this.physics.add.sprite(100, 450, 'dude');
+      player.setScale(0.125).setBounce(0.1).setCollideWorldBounds(true);
 
-      const selectedChar = localStorage.getItem('selectedCharacter') || '1';
-      this.load.spritesheet('dude', `assets/personnageframe${selectedChar}.png`, {
-        frameWidth: 320,
-        frameHeight: 480
-      });
-    }
+      // Animations
+      this.anims.create({ key: 'left', frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 3 }), frameRate: 10, repeat: -1 });
+      this.anims.create({ key: 'turn', frames: [{ key: 'dude', frame: 4 }], frameRate: 20 });
+      this.anims.create({ key: 'right', frames: this.anims.generateFrameNumbers('dude', { start: 5, end: 8 }), frameRate: 10, repeat: -1 });
+      cursors = this.input.keyboard.createCursorKeys();
 
-    // ================= CREATE =================
-    function create() {
-      this.add.image(400, 300, 'sky');
+      // 6. Pièces
+      for (let i = 0; i < 12; i++) {
+        let star = stars.create(12 + (i * 70), 0, 'star');
+        star.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8)).setScale(0.015).setCollideWorldBounds(true);
+      }
 
-      // Timer
-      timerText = this.add.text(16, 16, 'Temps: ' + survivalTime, {
-        fontSize: '32px',
-        fill: '#000'
-      });
+      // 7. Interface
+      timerText = this.add.text(16, 16, 'Temps: ' + survivalTime, { fontSize: '32px', fill: '#000', fontStyle: 'bold' });
+      freezeText = this.add.text(400, 50, '', { fontSize: '28px', fill: '#00ffff', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(100);
+      const numIcons = Math.ceil(MAX_HALF_LIVES / 2);
+      for (let i = 0; i < numIcons; i++) {
+        lifeIcons.push(this.add.image(40 + i * 45, 70, 'vie').setScale(0.02));
+      }
 
-      // Texte gel du temps
-      freezeText = this.add.text(400, 50, '', {
-        fontSize: '28px',
-        fill: '#00ffff',
-        backgroundColor: '#000',
-        padding: { x: 10, y: 5 }
-      }).setOrigin(0.5).setDepth(100);
+      // 8. Collisions (Maintenant tout est défini)
+      this.physics.add.collider(player, platforms);
+      this.physics.add.collider(player, trampolines, bounceOnTrampoline, null, this);
+      this.physics.add.collider(stars, platforms);
+      this.physics.add.collider(stars, trampolines);
+      this.physics.add.collider(bombs, platforms);
+      this.physics.add.collider(bombs, trampolines);
+      this.physics.add.collider(clocks, platforms);
+      this.physics.add.collider(clocks, trampolines);
 
-      // Icônes de vie
-      const numIcons = Math.ceil(MAX_HALF_LIVES / 2);
-      for (let i = 0; i < numIcons; i++) {
-        lifeIcons.push(this.add.image(40 + i * 45, 70, 'vie').setScale(0.02));
-      }
+      this.physics.add.overlap(player, stars, collectStar, null, this);
+      this.physics.add.overlap(player, clocks, collectClock, null, this);
+      this.physics.add.collider(player, bombs, hitBomb, null, this);
 
-// --- GÉNÉRATION DU NIVEAU ---
-platforms = this.physics.add.staticGroup();
+      // 9. Lancement des bombes initiales
+      const initialBombsCount = params.initialBombs || 4;
+      for (let i = 0; i < initialBombsCount; i++) spawnBomb(this);
 
-// 1. AJOUT DU SOL DE SÉCURITÉ (Toujours présent)
-// On le place à x=400 (milieu), y=584 (bas), avec un scale de 2
-platforms.create(400, 584, 'ground').setScale(2).refreshBody();
-
-// 2. Plateformes personnalisées (chargées depuis l'éditeur)
-if (data.platforms) {
-    data.platforms.forEach(p => {
-        // Optionnel : on peut ignorer la plateforme de l'éditeur si elle est déjà au sol
-        // pour éviter d'avoir deux sols l'un sur l'autre
-        if (p.y < 580) { 
-            let plat = platforms.create(p.x, p.y, 'ground');
-            plat.setScale(p.scaleX, p.scaleY);
-            plat.refreshBody();
+      // 10. Timers
+      this.time.addEvent({
+        delay: 1000, loop: true, callback: () => {
+          if (gameOver) return;
+          if (timeFrozen) {
+            frozenTimeRemaining--;
+            freezeText.setText('⏰ TEMPS GELÉ: ' + frozenTimeRemaining + 's');
+            if (frozenTimeRemaining <= 0) { timeFrozen = false; freezeText.setText(''); }
+          } else {
+            elapsedTime++;
+            let remain = survivalTime - elapsedTime;
+            timerText.setText('Temps: ' + Math.max(0, remain));
+            if (remain <= 0) victory(this);
+          }
         }
-    });
-}
+      });
 
-      // Tremplins
-      data.trampolines.forEach(t => {
-        trampolines.create(t.x, t.y, 'tremplin')
-          .setScale(0.04)
-          .refreshBody();
-      });
+      this.time.addEvent({
+        delay: (params.bombSpawnInterval || 30) * 1000, loop: true, callback: () => {
+          if (!gameOver && !timeFrozen) spawnBomb(this);
+        }
+      });
+    }
 
-      // Joueur (COMME LEVEL1)
-      player = this.physics.add.sprite(100, 450, 'dude');
-      player.setScale(0.125);
-      player.setBounce(0.2);
-      player.setCollideWorldBounds(true);
+    function update() {
+      if (gameOver) return;
+      if (cursors.left.isDown) { player.setVelocityX(-160); player.anims.play('left', true); }
+      else if (cursors.right.isDown) { player.setVelocityX(160); player.anims.play('right', true); }
+      else { player.setVelocityX(0); player.anims.play('turn'); }
+      if (cursors.up.isDown && player.body.touching.down) { player.setVelocityY(-450); }
+    }
 
-      // Animations
-      this.anims.create({
-        key: 'left',
-        frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 3 }),
-        frameRate: 10,
-        repeat: -1
-      });
+    function bounceOnTrampoline(player, tramp) { if (player.body.touching.down) { player.setVelocityY(-700); } }
 
-      this.anims.create({
-        key: 'turn',
-        frames: [{ key: 'dude', frame: 4 }],
-        frameRate: 20
-      });
+    function collectStar(player, star) {
+      star.disableBody(true, true);
+      if (stars.countActive(true) === 0) {
+        if (halfLives < MAX_HALF_LIVES) { halfLives++; updateLivesDisplay(); }
+        stars.children.iterate(c => c.enableBody(true, c.x, 0, true, true));
+        if (Math.random() < 0.2) spawnClock(this);
+      }
+    }
 
-      this.anims.create({
-        key: 'right',
-        frames: this.anims.generateFrameNumbers('dude', { start: 5, end: 8 }),
-        frameRate: 10,
-        repeat: -1
-      });
+    function collectClock(player, clock) {
+      clock.disableBody(true, true);
+      timeFrozen = true;
+      frozenTimeRemaining = 5;
+      freezeText.setText('⏰ TEMPS GELÉ: 5s');
+      bombs.children.iterate(b => b.setVelocity(0, 0));
+    }
 
-      cursors = this.input.keyboard.createCursorKeys();
+    function hitBomb(player, bomb) {
+      bomb.disableBody(true, true);
+      halfLives -= 2;
+      updateLivesDisplay();
+      player.setTint(0xff0000);
+      this.time.delayedCall(200, () => { if(!gameOver) player.clearTint(); });
+      if (halfLives <= 0) {
+        gameOver = true;
+        this.physics.pause();
+        this.add.text(400, 300, 'PERDU !', { fontSize: '64px', fill: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5);
+        this.time.delayedCall(3000, () => window.location.href = 'mesniveaux.html');
+      }
+    }
 
-      // Pièces
-      stars = this.physics.add.group({
-        key: 'star',
-        repeat: 11,
-        setXY: { x: 12, y: 0, stepX: 70 }
-      });
+    function spawnBomb(scene) {
+      let x = (player.x < 400) ? Phaser.Math.Between(400, 800) : Phaser.Math.Between(0, 400);
+      let bomb = bombs.create(x, 16, 'bomb');
+      bomb.setScale(0.015).setBounce(1).setCollideWorldBounds(true);
+      if (!timeFrozen) bomb.setVelocity(Phaser.Math.Between(-200, 200), 20);
+    }
 
-      stars.children.iterate(c => {
-        c.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
-        c.setScale(0.015);
-      });
+    function spawnClock(scene) {
+      let clock = clocks.create(Phaser.Math.Between(50, 750), 0, 'clock');
+      clock.setScale(0.02).setBounce(0.3).setCollideWorldBounds(true);
+    }
 
-      // Bombes
-      bombs = this.physics.add.group();
-      const initialBombs = params.initialBombs || 4;
-      for (let i = 0; i < initialBombs; i++) spawnBomb();
+    function updateLivesDisplay() {
+      for (let i = 0; i < lifeIcons.length; i++) {
+        let value = halfLives - i * 2;
+        if (value >= 2) lifeIcons[i].setTexture('vie');
+        else if (value === 1) lifeIcons[i].setTexture('demivie');
+        else lifeIcons[i].setTexture('novie');
+      }
+    }
 
-      // Collisions
-      this.physics.add.collider(player, platforms);
-      this.physics.add.collider(player, trampolines, bounceOnTrampoline, null, this);
-      this.physics.add.collider(stars, platforms);
-      this.physics.add.collider(bombs, platforms);
-      this.physics.add.collider(clocks, platforms);
-      this.physics.add.collider(stars, trampolines);
-      this.physics.add.collider(bombs, trampolines);
-      this.physics.add.collider(clocks, trampolines);
-
-      this.physics.add.overlap(player, stars, collectStar, null, this);
-      this.physics.add.overlap(player, clocks, collectClock, null, this);
-      this.physics.add.collider(player, bombs, hitBomb, null, this);
-
-      // Timer principal
-      this.time.addEvent({
-        delay: 1000,
-        loop: true,
-        callback: () => {
-          if (gameOver) return;
-
-          if (timeFrozen) {
-            frozenTimeRemaining--;
-            freezeText.setText('⏰ Temps gelé: ' + frozenTimeRemaining + 's');
-            if (frozenTimeRemaining <= 0) {
-              timeFrozen = false;
-              freezeText.setText('');
-            }
-            return;
-          }
-
-          elapsedTime++;
-          const remain = survivalTime - elapsedTime;
-          timerText.setText('Temps: ' + remain);
-          if (remain <= 0) victory(this);
-        }
-      });
-
-      // Spawn bombes
-      this.time.addEvent({
-        delay: (params.bombSpawnInterval || 30) * 1000,
-        loop: true,
-        callback: () => {
-          if (!gameOver && !timeFrozen) spawnBomb();
-        }
-      });
-
-      // Spawn horloges
-      this.time.addEvent({
-        delay: (params.clockSpawnInterval || 15) * 1000,
-        loop: true,
-        callback: () => {
-          if (!gameOver && clocks.countActive(true) === 0) {
-            if (Math.random() < ((params.clockDropRate || 20) / 100)) {
-              spawnClock();
-            }
-          }
-        }
-      });
-    }
-
-    // ================= UPDATE =================
-    function update() {
-      if (gameOver) return;
-
-      if (cursors.left.isDown) {
-        player.setVelocityX(-160);
-        player.anims.play('left', true);
-      } else if (cursors.right.isDown) {
-        player.setVelocityX(160);
-        player.anims.play('right', true);
-      } else {
-        player.setVelocityX(0);
-        player.anims.play('turn');
-      }
-
-      if (cursors.up.isDown && player.body.touching.down) {
-        player.setVelocityY(-330);
-      }
-    }
-
-    // ================= GAMEPLAY =================
-    function bounceOnTrampoline(player, trampoline) {
-      if (player.body.touching.down) {
-        player.setVelocityY(-650);
-      }
-    }
-
-    function updateLivesDisplay() {
-      for (let i = 0; i < lifeIcons.length; i++) {
-        const value = halfLives - i * 2;
-        if (value >= 2) lifeIcons[i].setTexture('vie');
-        else if (value === 1) lifeIcons[i].setTexture('demivie');
-        else lifeIcons[i].setTexture('novie');
-      }
-    }
-
-    function collectStar(player, star) {
-      star.disableBody(true, true);
-
-      if (stars.countActive(true) === 0) {
-        if (halfLives < MAX_HALF_LIVES) {
-          halfLives++;
-          updateLivesDisplay();
-        }
-        stars.children.iterate(c => c.enableBody(true, c.x, 0, true, true));
-      }
-    }
-
-    function collectClock(player, clock) {
-      clock.disableBody(true, true);
-
-      timeFrozen = true;
-      frozenTimeRemaining = params.freezeDuration || 5;
-      freezeText.setText('⏰ Temps gelé: ' + frozenTimeRemaining + 's');
-
-      bombs.children.iterate(b => { if (b.active) b.setVelocity(0, 0); });
-    }
-
-    function hitBomb(player, bomb) {
-      bomb.disableBody(true, true);
-
-      halfLives -= 2;
-      if (halfLives < 0) halfLives = 0;
-      updateLivesDisplay();
-
-      if (halfLives <= 0) {
-        gameOver = true;
-        this.physics.pause();
-        player.setTint(0xff0000);
-
-        this.add.text(280, 280, 'Perdu!', { fontSize: '40px', fill: '#ff0000' });
-        this.time.delayedCall(3000, () => window.location.href = 'mesniveaux.html');
-      }
-    }
-
-    function spawnBomb() {
-      const bomb = bombs.create(Phaser.Math.Between(50, 750), 16, 'bomb');
-      bomb.setScale(0.015);
-      bomb.setBounce(1);
-      bomb.setCollideWorldBounds(true);
-
-      if (!timeFrozen) {
-        bomb.setVelocity(Phaser.Math.Between(-250, 250), Phaser.Math.Between(50, 250));
-      }
-    }
-
-    function spawnClock() {
-      const clock = clocks.create(Phaser.Math.Between(100, 700), 16, 'clock');
-      clock.setScale(0.02);
-      clock.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
-      clock.setVelocityX(Phaser.Math.Between(-100, 100));
-    }
-
-    function victory(scene) {
-      gameOver = true;
-      scene.physics.pause();
-      player.setTint(0x00ff00);
-      scene.add.text(260, 280, 'Victoire!', { fontSize: '40px', fill: '#00ff00' });
-      scene.time.delayedCall(3000, () => window.location.href = 'mesniveaux.html');
-    }
-  </script>
-
+    function victory(scene) {
+      gameOver = true;
+      scene.physics.pause();
+      player.setTint(0x00ff00);
+      scene.add.text(400, 300, 'VICTOIRE !', { fontSize: '64px', fill: '#00ff00', fontStyle: 'bold' }).setOrigin(0.5);
+      scene.time.delayedCall(3000, () => window.location.href = 'mesniveaux.html');
+    }
+  </script>
 </body>
 </html>
