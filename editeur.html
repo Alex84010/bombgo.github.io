@@ -214,24 +214,29 @@
   <div class="game-container" id="gameContainer"></div>
 
   <script>
-    let config = {
-      type: Phaser.AUTO,
-      width: 800,
-      height: 600,
-      parent: 'gameContainer',
-      physics: {
-        default: 'arcade',
-        arcade: {
-          gravity: { y: 0 },
-          debug: false
-        }
-      },
-      scene: {
-        preload: preload,
-        create: create,
-        update: update
-      }
-    };
+let config = {
+  type: Phaser.AUTO,
+  width: 800,
+  height: 600,
+  parent: 'gameContainer',
+
+  render: {
+    preserveDrawingBuffer: true
+  },
+
+  physics: {
+    default: 'arcade',
+    arcade: {
+      gravity: { y: 0 },
+      debug: false
+    }
+  },
+  scene: {
+    preload: preload,
+    create: create,
+    update: update
+  }
+};
 
     let game = new Phaser.Game(config);
     let currentTool = 'platform';
@@ -550,4 +555,5 @@ document.getElementById("publishBtn").addEventListener("click", () => {
 </body>
 
 </html>
+
 
