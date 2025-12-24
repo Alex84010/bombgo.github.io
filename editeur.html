@@ -503,57 +503,61 @@ document.getElementById("publishBtn").addEventListener("click", () => {
   const nom = prompt("Nom du niveau ?");
   if (!nom) return;
 
-  // ✅ Récupérer le vrai canvas Phaser
-  const canvas = game.renderer.canvas;
+  document.getElementById("publishBtn").addEventListener("click", () => {
+  const nom = prompt("Nom du niveau ?");
+  if (!nom) return;
 
-  // ✅ Créer une miniature légère
-  const tempCanvas = document.createElement("canvas");
-  tempCanvas.width = 320;
-  tempCanvas.height = 240;
+  // 📸 Capture OFFICIELLE Phaser (LA BONNE)
+  game.renderer.snapshot((image) => {
 
-  const ctx = tempCanvas.getContext("2d");
-  ctx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
+    const canvas = document.createElement("canvas");
+    canvas.width = 320;
+    canvas.height = 240;
 
-  // ✅ Encodage JPEG compressé
-  const imageData = tempCanvas.toDataURL("image/jpeg", 0.8);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-  console.log("Image OK, longueur :", imageData.length);
+    const imageData = canvas.toDataURL("image/jpeg", 0.8);
 
-  const niveauData = {
-    params: {
-      survivalTime: Number(document.getElementById('survivalTime').value),
-      halfLives: Number(document.getElementById('halfLives').value),
-      initialBombs: Number(document.getElementById('initialBombs').value),
-      bombSpawnInterval: Number(document.getElementById('bombSpawnInterval').value)
-    },
-    platforms: platforms.map(p => ({
-      x: p.x,
-      y: p.y,
-      scaleX: p.getData('scaleX') || p.scaleX,
-      scaleY: p.getData('scaleY') || p.scaleY
-    })),
-    trampolines: trampolines.map(t => ({
-      x: t.x,
-      y: t.y
-    }))
-  };
+    console.log("📸 Snapshot OK, longueur :", imageData.length);
 
-  const niveaux = JSON.parse(localStorage.getItem("mesNiveaux")) || [];
+    const niveauData = {
+      params: {
+        survivalTime: Number(document.getElementById('survivalTime').value),
+        halfLives: Number(document.getElementById('halfLives').value),
+        initialBombs: Number(document.getElementById('initialBombs').value),
+        bombSpawnInterval: Number(document.getElementById('bombSpawnInterval').value)
+      },
+      platforms: platforms.map(p => ({
+        x: p.x,
+        y: p.y,
+        scaleX: p.getData('scaleX') || p.scaleX,
+        scaleY: p.getData('scaleY') || p.scaleY
+      })),
+      trampolines: trampolines.map(t => ({
+        x: t.x,
+        y: t.y
+      }))
+    };
 
-  niveaux.push({
-    nom,
-    image: imageData,
-    data: niveauData
+    const niveaux = JSON.parse(localStorage.getItem("mesNiveaux")) || [];
+
+    niveaux.push({
+      nom,
+      image: imageData,
+      data: niveauData
+    });
+
+    localStorage.setItem("mesNiveaux", JSON.stringify(niveaux));
+
+    alert("✅ Niveau publié avec image !");
   });
-
-  localStorage.setItem("mesNiveaux", JSON.stringify(niveaux));
-
-  alert("✅ Niveau publié !");
 });
 
   </script>
 </body>
 
 </html>
+
 
 
