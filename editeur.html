@@ -524,56 +524,55 @@ frozenTimeRemaining = ${freezeDuration};
       alert('Pour tester votre niveau :\n\n1. Cliquez sur "Exporter le Code"\n2. Copiez le code généré\n3. Collez-le dans votre fichier HTML\n4. Ouvrez le fichier dans votre navigateur');
     }
 
-    /* =====================================
+/* =====================================
    PUBLICATION DU NIVEAU
 ===================================== */
-    document.getElementById("publishBtn").addEventListener("click", () => {
-      const nom = prompt("Nom du niveau ?");
-      if (!nom) return;
+document.getElementById("publishBtn").addEventListener("click", () => {
+  const nom = prompt("Nom du niveau ?");
+  if (!nom) return;
 
-      // Capture du canvas Phaser
-      const canvas = document.querySelector("canvas");
-      const image = canvas.toDataURL("image/png");
+  // Attendre que le rendu soit complet avant de capturer
+  scene.renderer.snapshot((image) => {
+    // Paramètres du niveau
+    const niveauData = {
+      params: {
+        survivalTime: Number(document.getElementById('survivalTime').value),
+        halfLives: Number(document.getElementById('halfLives').value),
+        initialBombs: Number(document.getElementById('initialBombs').value),
+        bombSpawnInterval: Number(document.getElementById('bombSpawnInterval').value),
+        clockDropRate: 0, // Désactivé
+        clockSpawnInterval: 999, // Désactivé
+        freezeDuration: 0 // Désactivé
+      },
+      platforms: platforms.map(p => ({
+        x: p.x,
+        y: p.y,
+        scaleX: p.getData('scaleX') || p.scaleX,
+        scaleY: p.getData('scaleY') || p.scaleY
+      })),
+      trampolines: trampolines.map(t => ({
+        x: t.x,
+        y: t.y
+      }))
+    };
 
-      // Paramètres du niveau
-      const niveauData = {
-        params: {
-          survivalTime: Number(document.getElementById('survivalTime').value),
-          halfLives: Number(document.getElementById('halfLives').value),
-          initialBombs: Number(document.getElementById('initialBombs').value),
-          bombSpawnInterval: Number(document.getElementById('bombSpawnInterval').value),
-          clockDropRate: Number(document.getElementById('clockDropRate').value),
-          clockSpawnInterval: Number(document.getElementById('clockSpawnInterval').value),
-          freezeDuration: Number(document.getElementById('freezeDuration').value)
-        },
-        platforms: platforms.map(p => ({
-          x: p.x,
-          y: p.y,
-          scaleX: p.scaleX,
-          scaleY: p.scaleY
-        })),
-        trampolines: trampolines.map(t => ({
-          x: t.x,
-          y: t.y
-        }))
-      };
+    const niveaux = JSON.parse(localStorage.getItem("mesNiveaux")) || [];
 
-      const niveaux = JSON.parse(localStorage.getItem("mesNiveaux")) || [];
-
-      niveaux.push({
-        nom: nom,
-        image: image,
-        data: niveauData
-      });
-
-      localStorage.setItem("mesNiveaux", JSON.stringify(niveaux));
-
-      alert("✅ Niveau publié !");
+    niveaux.push({
+      nom: nom,
+      image: image.src, // Utiliser image.src au lieu de toDataURL
+      data: niveauData
     });
 
+    localStorage.setItem("mesNiveaux", JSON.stringify(niveaux));
+
+    alert("✅ Niveau publié !");
+  });
+});
   </script>
 </body>
 
 
 </html>
+
 
