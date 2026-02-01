@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <title>Classement</title>
   <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png">
-
   <style>
     body {
       margin: 0;
@@ -14,9 +13,11 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      min-height: 100vh;
     }
 
     h1 { margin-top: 20px; }
+
     table {
       border-collapse: collapse;
       margin-top: 20px;
@@ -24,14 +25,19 @@
       max-width: 700px;
       background: #1f1f1f;
     }
+
     th, td {
       padding: 12px;
       text-align: center;
       border-bottom: 1px solid #444;
     }
+
     th { background: #111; font-size: 18px; }
+
     tr.me { color: gold; font-weight: bold; }
+
     tr:nth-child(even) { background: #262626; }
+
     .back {
       position: fixed;
       top: 10px;
@@ -41,8 +47,8 @@
     }
   </style>
 </head>
-
 <body>
+
   <img src="assets/logoretour.png" class="back" onclick="location.href='index.html'">
   <h1>🏆 Classement</h1>
 
@@ -62,6 +68,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
   <script>
+    // Initialisation Firebase
     firebase.initializeApp({
       apiKey: "AIzaSyBnQb5b5h62Jl4WeiKEBMeEmivbOK-B70k",
       authDomain: "bombgo-classement.firebaseapp.com",
@@ -71,49 +78,30 @@
 
     const db = firebase.firestore();
 
-    const deviceId = localStorage.getItem("deviceId") || "";
-    const playerNickname = localStorage.getItem("playerNickname") || "player";
-
+    // Récupérer deviceId pour surligner le joueur actuel
+    const deviceId = localStorage.getItem("deviceId");
     const ranking = document.getElementById("ranking");
 
     // 🔄 Classement en temps réel
-    db.collection("scores").onSnapshot(snapshot => {
-
-      // Récupérer tous les docs dans un tableau
-      const scores = [];
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        scores.push({
-          id: doc.id,
-          pseudo: data.pseudo,
-          score: data.score
-        });
-      });
-
-      // Trier par score décroissant
-      scores.sort((a, b) => b.score - a.score);
+    db.collection("scores").orderBy("score", "desc").onSnapshot(snapshot => {
 
       // Vider le tableau
       ranking.innerHTML = "";
 
-      // Afficher le classement
-      scores.forEach((entry, index) => {
+      let index = 1;
+      snapshot.forEach(doc => {
+        const data = doc.data();
         const tr = document.createElement("tr");
 
-        // Surligner le joueur actuel
-        if (entry.id === deviceId) tr.classList.add("me");
+        if (doc.id === deviceId) tr.classList.add("me"); // ton score en jaune
 
-        tr.innerHTML = `
-          <td>${index + 1}</td>
-          <td>${entry.pseudo}</td>
-          <td>${entry.score}</td>
-        `;
+        tr.innerHTML = `<td>${index}</td><td>${data.pseudo}</td><td>${data.score}</td>`;
         ranking.appendChild(tr);
+
+        index++;
       });
 
     });
   </script>
-</body>
-</html>
 </body>
 </html>
