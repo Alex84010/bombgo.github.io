@@ -288,34 +288,38 @@ const db = firebase.firestore();
 
         // Fonction appelée quand le joueur touche une bombe
         function hitBomb(player, bomb) {
-            bomb.disableBody(true, true); // Supprimer la bombe
-            lives--; // Réduire le nombre de vies
 
-            // Masquer l'icône de vie correspondante
-            if (lives >= 0) {
-                lifeIcons[lives]
-                    .setTexture('novie')   // 👈 remplace l'image
-                    .setScale(0.02);       // garde la même taille
-            }
+  bomb.disableBody(true, true);
+  lives--;
 
-            // Vérifier si le joueur n'a plus de vies
-            if (lives <= 0) {
-                this.physics.pause(); // Arrêter la physique du jeu
-                player.setTint(0xff0000); // Colorer le joueur en rouge
-                player.anims.play('turn'); // Arrêter les animations
-                gameOver = true; // Marquer le jeu comme terminé
-            }
+  // Met à jour l'affichage des vies
+  if (lives >= 0) {
+    lifeIcons[lives]
+      .setTexture('novie')
+      .setScale(0.02);
+  }
 
-            if (!gameOver) {
-  gameOver = true;
+  // 💥 GAME OVER SEULEMENT ICI
+  if (lives <= 0 && !gameOver) {
 
-  db.collection("scores").add({
+    gameOver = true;
+
+    this.physics.pause();
+    player.setTint(0xff0000);
+    player.anims.play('turn');
+
+    // 🔥 Envoi du score UNE SEULE FOIS
+    saveScore();
+  }
+        }
+
+    function saveScore() {
+  db.collection("scores").doc(playerNickname).set({
     pseudo: playerNickname,
     score: score,
     date: Date.now()
-  });
-            }
-        }
+  }, { merge: true });
+    }
 
         // Fonction pour créer les plateformes d'un niveau spécifique
         function createPlatformsForLevel(level) {
@@ -339,6 +343,7 @@ const db = firebase.firestore();
 </body>
 
 </html>
+
 
 
 
