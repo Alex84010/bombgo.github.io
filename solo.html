@@ -50,6 +50,13 @@ firebase.initializeApp({
   appId: "1:113313571513:web:73863b02df8193606ef168"
 });
 const db = firebase.firestore();
+
+    let deviceId = localStorage.getItem("deviceId");
+
+if (!deviceId) {
+  deviceId = crypto.randomUUID();
+  localStorage.setItem("deviceId", deviceId);
+}
     
         // Configuration du jeu Phaser
         var config = {
@@ -315,11 +322,11 @@ const db = firebase.firestore();
 
     function saveScore() {
 
-  const ref = db.collection("scores").doc(playerNickname);
+  const ref = db.collection("scores").doc(deviceId);
 
   ref.get().then(doc => {
 
-    // Pas encore de score → on crée
+    // Aucun score encore → on crée
     if (!doc.exists) {
       ref.set({
         pseudo: playerNickname,
@@ -331,18 +338,25 @@ const db = firebase.firestore();
 
     const oldScore = doc.data().score;
 
-    // Nouveau record → on remplace
+    // 🥇 Meilleur score → on remplace
     if (score > oldScore) {
       ref.set({
         pseudo: playerNickname,
         score: score,
         date: Date.now()
       });
+      return;
     }
 
-    // Sinon → on ne fait RIEN
+    // ❌ Score inférieur → on écrase quand même (pour éviter les doublons)
+    // (si tu préfères NE RIEN FAIRE, dis-le)
+    ref.set({
+      pseudo: playerNickname,
+      score: score,
+      date: Date.now()
+    });
   });
-}
+    }
 
         // Fonction pour créer les plateformes d'un niveau spécifique
         function createPlatformsForLevel(level) {
@@ -366,6 +380,7 @@ const db = firebase.firestore();
 </body>
 
 </html>
+
 
 
 
