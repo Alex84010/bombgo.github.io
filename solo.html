@@ -163,21 +163,30 @@
     }
   }
 
-  function saveScore(){
-    const ref = db.collection("scores").doc(deviceId);
-    ref.get().then(doc=>{
-      if(!doc.exists){
-        ref.set({pseudo: playerNickname, score: score, date: Date.now()});
-      } else {
-        const data = doc.data();
-        if(score > data.score){
-          ref.set({pseudo: playerNickname, score: score, date: Date.now()});
-        } else if(playerNickname !== data.pseudo){
-          ref.update({pseudo: playerNickname});
-        }
-      }
-    });
-  }
+  function saveScore() {
+  const ref = db.collection("scores").doc(deviceId);
+
+  ref.get().then(doc => {
+    if (!doc.exists) {
+      // Nouveau score
+      ref.set({ pseudo: playerNickname, score: score, date: Date.now() });
+      console.log("Nouveau score créé !");
+      return;
+    }
+
+    const oldData = doc.data();
+
+    if (score > oldData.score) {
+      // Score supérieur → mettre à jour
+      ref.set({ pseudo: playerNickname, score: score, date: Date.now() });
+      console.log("Score mis à jour !");
+    } else if (playerNickname !== oldData.pseudo) {
+      // Score inférieur mais pseudo changé → mettre à jour pseudo
+      ref.update({ pseudo: playerNickname });
+      console.log("Pseudo mis à jour !");
+    }
+  }).catch(err => console.error("Erreur saveScore:", err));
+}
 
   function createPlatformsForLevel(level){
     platformsArray.forEach(p=>p.destroy());
@@ -193,3 +202,4 @@
 </script>
 </body>
 </html>
+
