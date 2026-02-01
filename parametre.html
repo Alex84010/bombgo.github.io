@@ -22,6 +22,34 @@
       margin-bottom: 40px;
     }
 
+    .nickname-section {
+      margin: 30px auto;
+      max-width: 500px;
+    }
+
+    .nickname-section h2 {
+      font-size: 28px;
+      margin-bottom: 15px;
+      color: #FFD700;
+    }
+
+    .nickname-input {
+      background: #444;
+      border: 3px solid #666;
+      border-radius: 10px;
+      padding: 15px 20px;
+      font-size: 20px;
+      color: white;
+      width: 300px;
+      text-align: center;
+      transition: border-color 0.3s;
+    }
+
+    .nickname-input:focus {
+      outline: none;
+      border-color: #4CAF50;
+    }
+
     .character-selection {
       display: flex;
       justify-content: center;
@@ -30,6 +58,12 @@
       gap: 30px;
       margin: 40px auto;
       max-width: 900px;
+    }
+
+    .character-section-title {
+      font-size: 28px;
+      margin: 40px 0 20px 0;
+      color: #FFD700;
     }
 
     .character-option {
@@ -92,55 +126,89 @@
   <img src="assets/logorefresh.png" style="width:105px; position:fixed; top:10px; right:10px;"
     onclick="window.location.href='./parametre.html'">
 
-    <h1 class="title">PARAMETRE</h1>
+  <h1 class="title">PARAMETRE</h1>
 
-    <div class="character-selection" id="CharacterSelection">
+  <div class="nickname-section">
+    <h2>Pseudo</h2>
+    <input type="text" id="nicknameInput" class="nickname-input" placeholder="Entrez votre pseudo" maxlength="20">
+  </div>
 
-    </div>
+  <h2 class="character-section-title">Sélection du personnage</h2>
 
-<button class="save-button" onclick="saveAndReturn()">Valider</button>
+  <div class="character-selection" id="CharacterSelection">
 
-<script>
-  const numberOfCharacter = 4;
-  let selectedCharacter = 1;
+  </div>
 
-  const savedCharacter = localStorage.getItem('selectedCharacter');
-  if (savedCharacter) {
-    selectedCharacter = parseInt(savedCharacter);
-  }
+  <button class="save-button" onclick="saveAndReturn()">Valider</button>
 
-  const container = document.getElementById('CharacterSelection');
+  <script>
+    const numberOfCharacter = 4;
+    let selectedCharacter = 1;
+    let playerNickname = 'player';
 
-  for (let i = 1; i <= numberOfCharacter; i++) {
-    const option = document.createElement('div');
-    option.className = 'character-option';
-
-    if (i === selectedCharacter) {
-      option.classList.add('selected');
+    // Charger le pseudo sauvegardé
+    const savedNickname = localStorage.getItem('playerNickname');
+    if (savedNickname) {
+      playerNickname = savedNickname;
     }
 
-    option.innerHTML = `
-      <img src="assets/personnage${i}.png" alt="Personnage ${i}">
-      <p>Personnage ${i}</p>
-    `;
+    // Afficher le pseudo dans l'input
+    document.getElementById('nicknameInput').value = playerNickname;
 
-    option.onclick = () => selectCharacter(i);
-    container.appendChild(option);
-  }
+    // Charger le personnage sauvegardé
+    const savedCharacter = localStorage.getItem('selectedCharacter');
+    if (savedCharacter) {
+      selectedCharacter = parseInt(savedCharacter);
+    }
 
-  function selectCharacter(num) {
-    selectedCharacter = num;
+    const container = document.getElementById('CharacterSelection');
 
-    document.querySelectorAll('.character-option').forEach((opt, index) => {
-      opt.classList.toggle('selected', index + 1 === num);
+    for (let i = 1; i <= numberOfCharacter; i++) {
+      const option = document.createElement('div');
+      option.className = 'character-option';
+
+      if (i === selectedCharacter) {
+        option.classList.add('selected');
+      }
+
+      option.innerHTML = `
+        <img src="assets/personnage${i}.png" alt="Personnage ${i}">
+        <p>Personnage ${i}</p>
+      `;
+
+      option.onclick = () => selectCharacter(i);
+      container.appendChild(option);
+    }
+
+    function selectCharacter(num) {
+      selectedCharacter = num;
+
+      document.querySelectorAll('.character-option').forEach((opt, index) => {
+        opt.classList.toggle('selected', index + 1 === num);
+      });
+    }
+
+    function saveAndReturn() {
+      // Récupérer le pseudo de l'input
+      const nicknameValue = document.getElementById('nicknameInput').value.trim();
+      
+      // Si le pseudo est vide, utiliser "player" par défaut
+      const finalNickname = nicknameValue === '' ? 'player' : nicknameValue;
+      
+      // Sauvegarder le pseudo et le personnage
+      localStorage.setItem('playerNickname', finalNickname);
+      localStorage.setItem('selectedCharacter', selectedCharacter);
+      
+      window.location.href = './index.html';
+    }
+
+    // Permettre de valider en appuyant sur Entrée dans l'input
+    document.getElementById('nicknameInput').addEventListener('keypress', function(event) {
+      if (event.key === 'Enter') {
+        saveAndReturn();
+      }
     });
-  }
-
-  function saveAndReturn() {
-    localStorage.setItem('selectedCharacter', selectedCharacter);
-    window.location.href = './index.html';
-  }
-</script>
+  </script>
 
 </body>
 </html>
