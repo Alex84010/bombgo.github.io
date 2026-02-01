@@ -44,11 +44,15 @@
 
 <script>
 
-    let deviceId = localStorage.getItem("deviceId");
+    // Crée un deviceId unique si inexistant
+let deviceId = localStorage.getItem("deviceId");
 if (!deviceId) {
-  deviceId = crypto.randomUUID();
-  localStorage.setItem("deviceId", deviceId);
+    deviceId = crypto.randomUUID();
+    localStorage.setItem("deviceId", deviceId);
 }
+
+// Récupère le pseudo actuel
+let playerNickname = localStorage.getItem("playerNickname") || "player";
     
 firebase.initializeApp({
   apiKey: "AIzaSyBnQb5b5h62Jl4WeiKEBMeEmivbOK-B70k",
@@ -308,12 +312,30 @@ const db = firebase.firestore();
 
   // 💥 GAME OVER SEULEMENT ICI
   if (lives <= 0 && !gameOver) {
-  gameOver = true;
-  this.physics.pause();
-  player.setTint(0xff0000);
-  player.anims.play('turn');
+    gameOver = true;
+    this.physics.pause();
+    player.setTint(0xff0000);
+    player.anims.play('turn');
 
-  saveScore(); // ✅ ICI
+    // 🔥 Sauvegarde du score et pseudo
+    const ref = db.collection("scores").doc(deviceId);
+
+    ref.get().then(doc => {
+        if (!doc.exists) {
+            // Création du document
+            ref.set({ pseudo: playerNickname, score: score, date: Date.now() });
+        } else {
+            const old = doc.data();
+            if (score > old.score) {
+                // Nouveau record
+                ref.set({ pseudo: playerNickname, score: score, date: Date.now() });
+            } else if (playerNickname !== old.pseudo) {
+                // Juste un changement de pseudo
+                ref.update({ pseudo: playerNickname });
+            }
+            // Sinon : score inférieur et pseudo identique → rien
+        }
+    });
 }
         }
 
@@ -376,6 +398,7 @@ const db = firebase.firestore();
 </body>
 
 </html>
+
 
 
 
