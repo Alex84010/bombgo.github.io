@@ -299,25 +299,34 @@ const db = firebase.firestore();
 
         // Fonction appelée quand le joueur touche une bombe
         function hitBomb(player, bomb) {
+    // Supprimer la bombe
     bomb.disableBody(true, true);
+
+    // Réduire le nombre de vies
     lives--;
 
+    // Mettre à jour l'affichage des vies
     if (lives >= 0) {
         lifeIcons[lives].setTexture('novie').setScale(0.02);
     }
 
+    // Si le joueur n'a plus de vies
     if (lives <= 0 && !gameOver) {
         gameOver = true;
+
+        // Pause du jeu
         this.physics.pause();
+
+        // Colorer le joueur en rouge et stopper l'animation
         player.setTint(0xff0000);
         player.anims.play('turn');
 
-        // 🔥 Sauvegarde du score
+        // Sauvegarde du score et pseudo
         saveScore();
     }
 }
 
-// Fonction qui gère le score et pseudo
+// Fonction qui gère le score et pseudo dans Firestore
 function saveScore() {
     const ref = db.collection("scores").doc(deviceId);
 
@@ -348,45 +357,8 @@ function saveScore() {
             ref.update({ pseudo: playerNickname });
             console.log("Pseudo mis à jour !");
         }
-        // Si score inférieur et pseudo identique => rien
+        // Si score inférieur et pseudo identique → rien
     }).catch(err => console.error("Erreur saveScore:", err));
-}
-
-    function saveScore() {
-  const ref = db.collection("scores").doc(deviceId);
-
-  ref.get().then(doc => {
-
-    // Si le doc n'existe pas → création
-    if (!doc.exists) {
-      ref.set({
-        pseudo: playerNickname,
-        score: score,
-        date: Date.now()
-      });
-      console.log("Nouveau score créé !");
-      return;
-    }
-
-    const oldData = doc.data();
-
-    // Si le score est supérieur → remplacer
-    if (score > oldData.score) {
-      ref.set({
-        pseudo: playerNickname, // met à jour le pseudo aussi
-        score: score,
-        date: Date.now()
-      });
-      console.log("Record battu ! Score mis à jour !");
-    } 
-    // Si le score est inférieur → mettre à jour le pseudo seulement
-    else if (playerNickname !== oldData.pseudo) {
-      ref.update({
-        pseudo: playerNickname
-      });
-      console.log("Pseudo mis à jour !");
-    }
-  }).catch(err => console.error("Erreur saveScore:", err));
 }
 
         // Fonction pour créer les plateformes d'un niveau spécifique
@@ -411,6 +383,7 @@ function saveScore() {
 </body>
 
 </html>
+
 
 
 
