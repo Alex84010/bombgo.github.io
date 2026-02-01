@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>Classement</title>
-
   <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png">
 
   <style>
@@ -17,10 +16,7 @@
       align-items: center;
     }
 
-    h1 {
-      margin-top: 20px;
-    }
-
+    h1 { margin-top: 20px; }
     table {
       border-collapse: collapse;
       margin-top: 20px;
@@ -28,27 +24,14 @@
       max-width: 700px;
       background: #1f1f1f;
     }
-
     th, td {
       padding: 12px;
       text-align: center;
       border-bottom: 1px solid #444;
     }
-
-    th {
-      background: #111;
-      font-size: 18px;
-    }
-
-    tr.me {
-      color: gold;
-      font-weight: bold;
-    }
-
-    tr:nth-child(even) {
-      background: #262626;
-    }
-
+    th { background: #111; font-size: 18px; }
+    tr.me { color: gold; font-weight: bold; }
+    tr:nth-child(even) { background: #262626; }
     .back {
       position: fixed;
       top: 10px;
@@ -60,9 +43,7 @@
 </head>
 
 <body>
-
   <img src="assets/logoretour.png" class="back" onclick="location.href='index.html'">
-
   <h1>🏆 Classement</h1>
 
   <table>
@@ -90,43 +71,49 @@
 
     const db = firebase.firestore();
 
-    // 🔐 Device ID
-    let deviceId = localStorage.getItem("deviceId");
-    if (!deviceId) {
-      deviceId = crypto.randomUUID();
-      localStorage.setItem("deviceId", deviceId);
-    }
+    const deviceId = localStorage.getItem("deviceId") || "";
+    const playerNickname = localStorage.getItem("playerNickname") || "player";
 
     const ranking = document.getElementById("ranking");
 
     // 🔄 Classement en temps réel
-    db.collection("scores")
-      .orderBy("score", "desc")
-      .onSnapshot(snapshot => {
+    db.collection("scores").onSnapshot(snapshot => {
 
-        ranking.innerHTML = "";
-        let position = 1;
-
-        snapshot.forEach(doc => {
-          const data = doc.data();
-
-          const tr = document.createElement("tr");
-
-          if (doc.id === deviceId) {
-            tr.classList.add("me");
-          }
-
-          tr.innerHTML = `
-            <td>${position}</td>
-            <td>${data.pseudo}</td>
-            <td>${data.score}</td>
-          `;
-
-          ranking.appendChild(tr);
-          position++;
+      // Récupérer tous les docs dans un tableau
+      const scores = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        scores.push({
+          id: doc.id,
+          pseudo: data.pseudo,
+          score: data.score
         });
       });
-  </script>
 
+      // Trier par score décroissant
+      scores.sort((a, b) => b.score - a.score);
+
+      // Vider le tableau
+      ranking.innerHTML = "";
+
+      // Afficher le classement
+      scores.forEach((entry, index) => {
+        const tr = document.createElement("tr");
+
+        // Surligner le joueur actuel
+        if (entry.id === deviceId) tr.classList.add("me");
+
+        tr.innerHTML = `
+          <td>${index + 1}</td>
+          <td>${entry.pseudo}</td>
+          <td>${entry.score}</td>
+        `;
+        ranking.appendChild(tr);
+      });
+
+    });
+  </script>
+</body>
+</html>
 </body>
 </html>
