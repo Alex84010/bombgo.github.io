@@ -21,23 +21,32 @@
       color: #FFD700;
     }
 
-    #leaderboard {
-      max-width: 500px;
+    table {
       margin: 0 auto;
-      font-size: 24px;
+      border-collapse: collapse;
+      width: 60%;
+      max-width: 600px;
+      font-size: 22px;
+    }
+
+    th, td {
+      border: 1px solid #555;
+      padding: 12px 20px;
       text-align: left;
     }
 
-    #leaderboard div {
-      padding: 10px;
-      border-bottom: 1px solid #555;
+    th {
+      background-color: #444;
+      color: #FFD700;
+      font-size: 24px;
     }
 
-    #leaderboard div:last-child {
-      border-bottom: none;
+    td {
+      background-color: #222;
     }
 
-    .highlight {
+    tr.highlight td {
+      background-color: #444400;
       color: yellow;
       font-weight: bold;
     }
@@ -56,13 +65,27 @@
     .btn:hover {
       background: #45a049;
     }
+
   </style>
 </head>
 
 <body>
 
   <h1>Classement</h1>
-  <div id="leaderboard">Chargement...</div>
+
+  <table id="leaderboard">
+    <thead>
+      <tr>
+        <th>Rang</th>
+        <th>Pseudo</th>
+        <th>Score</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td colspan="3">Chargement...</td></tr>
+    </tbody>
+  </table>
+
   <button class="btn" onclick="window.location.href='./index.html'">Retour</button>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -88,34 +111,43 @@
 
     const db = firebase.firestore();
 
-    // Charger le classement
     function loadLeaderboard() {
+      const tbody = document.querySelector("#leaderboard tbody");
+      tbody.innerHTML = "<tr><td colspan='3'>Chargement...</td></tr>";
+
       db.collection("scores")
         .orderBy("score", "desc")
         .limit(10)
         .get()
         .then(snapshot => {
-          const container = document.getElementById("leaderboard");
-          container.innerHTML = "";
+          tbody.innerHTML = "";
 
           if (snapshot.empty) {
-            container.textContent = "Aucun score pour le moment.";
+            tbody.innerHTML = "<tr><td colspan='3'>Aucun score pour le moment.</td></tr>";
             return;
           }
 
+          let rank = 1;
           snapshot.forEach(doc => {
             const data = doc.data();
-            const div = document.createElement("div");
-            div.textContent = `${data.pseudo} : ${data.score}`;
+            const tr = document.createElement("tr");
+
             if (doc.id === deviceId) {
-              div.classList.add("highlight");
+              tr.classList.add("highlight");
             }
-            container.appendChild(div);
+
+            tr.innerHTML = `
+              <td>${rank}</td>
+              <td>${data.pseudo}</td>
+              <td>${data.score}</td>
+            `;
+            tbody.appendChild(tr);
+            rank++;
           });
         })
         .catch(err => {
           console.error("Erreur leaderboard:", err);
-          document.getElementById("leaderboard").textContent = "Erreur de chargement du classement.";
+          tbody.innerHTML = "<tr><td colspan='3'>Erreur de chargement du classement.</td></tr>";
         });
     }
 
