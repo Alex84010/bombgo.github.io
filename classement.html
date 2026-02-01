@@ -1,62 +1,132 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>Classement</title>
+  <meta charset="UTF-8">
+  <title>Classement</title>
 
-<style>
-body {
-  background:#222;
-  color:white;
-  font-family:Arial;
-  text-align:center;
-}
-li {
-  font-size:22px;
-  margin:10px 0;
-}
-.me {
-  color:#FFD700;
-  font-weight:bold;
-}
-</style>
+  <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png">
+
+  <style>
+    body {
+      margin: 0;
+      background: #2e2e2e;
+      color: white;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      margin-top: 20px;
+    }
+
+    table {
+      border-collapse: collapse;
+      margin-top: 20px;
+      width: 80%;
+      max-width: 700px;
+      background: #1f1f1f;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: center;
+      border-bottom: 1px solid #444;
+    }
+
+    th {
+      background: #111;
+      font-size: 18px;
+    }
+
+    tr.me {
+      color: gold;
+      font-weight: bold;
+    }
+
+    tr:nth-child(even) {
+      background: #262626;
+    }
+
+    .back {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      cursor: pointer;
+      width: 100px;
+    }
+  </style>
 </head>
 
 <body>
 
-<h1>🏆 Classement mondial</h1>
-<ol id="classement"></ol>
+  <img src="assets/logoretour.png" class="back" onclick="location.href='index.html'">
 
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <h1>🏆 Classement</h1>
 
-<script>
-firebase.initializeApp({
-  apiKey: "AIzaSyBnQb5b5h62Jl4WeiKEBMeEmivbOK-B70k",
-  authDomain: "bombgo-classement.firebaseapp.com",
-  projectId: "bombgo-classement",
-  appId: "1:113313571513:web:73863b02df8193606ef168"
-});
-const db = firebase.firestore();
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Pseudo</th>
+        <th>Score</th>
+      </tr>
+    </thead>
+    <tbody id="ranking"></tbody>
+  </table>
 
-const myPseudo = localStorage.getItem('playerNickname');
-const list = document.getElementById('classement');
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
-db.collection("scores")
-  .orderBy("score", "desc")
-  .limit(20)
-  .onSnapshot(snapshot => {
-    list.innerHTML = '';
-    snapshot.forEach(doc => {
-      const d = doc.data();
-      const li = document.createElement('li');
-      li.textContent = `${d.pseudo} — ${d.score}`;
-      if (d.pseudo === myPseudo) li.classList.add('me');
-      list.appendChild(li);
+  <script>
+    firebase.initializeApp({
+      apiKey: "AIzaSyBnQb5b5h62Jl4WeiKEBMeEmivbOK-B70k",
+      authDomain: "bombgo-classement.firebaseapp.com",
+      projectId: "bombgo-classement",
+      appId: "1:113313571513:web:73863b02df8193606ef168"
     });
-  });
-</script>
+
+    const db = firebase.firestore();
+
+    // 🔐 Device ID
+    let deviceId = localStorage.getItem("deviceId");
+    if (!deviceId) {
+      deviceId = crypto.randomUUID();
+      localStorage.setItem("deviceId", deviceId);
+    }
+
+    const ranking = document.getElementById("ranking");
+
+    // 🔄 Classement en temps réel
+    db.collection("scores")
+      .orderBy("score", "desc")
+      .onSnapshot(snapshot => {
+
+        ranking.innerHTML = "";
+        let position = 1;
+
+        snapshot.forEach(doc => {
+          const data = doc.data();
+
+          const tr = document.createElement("tr");
+
+          if (doc.id === deviceId) {
+            tr.classList.add("me");
+          }
+
+          tr.innerHTML = `
+            <td>${position}</td>
+            <td>${data.pseudo}</td>
+            <td>${data.score}</td>
+          `;
+
+          ranking.appendChild(tr);
+          position++;
+        });
+      });
+  </script>
 
 </body>
 </html>
-
