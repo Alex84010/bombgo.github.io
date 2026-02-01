@@ -322,42 +322,41 @@ const db = firebase.firestore();
         }
 
     function saveScore() {
-
   const ref = db.collection("scores").doc(deviceId);
 
   ref.get().then(doc => {
 
-    // Aucun score encore → on crée
+    // Aucun score encore → création
     if (!doc.exists) {
       ref.set({
         pseudo: playerNickname,
         score: score,
-        date: Date.now()
+        updatedAt: Date.now()
       });
       return;
     }
 
-    const oldScore = doc.data().score;
+    const data = doc.data();
 
-    // 🥇 Meilleur score → on remplace
-    if (score > oldScore) {
+    // Nouveau record → update
+    if (score > data.score) {
       ref.set({
         pseudo: playerNickname,
         score: score,
-        date: Date.now()
+        updatedAt: Date.now()
       });
-      return;
     }
 
-    // ❌ Score inférieur → on écrase quand même (pour éviter les doublons)
-    // (si tu préfères NE RIEN FAIRE, dis-le)
-    ref.set({
-      pseudo: playerNickname,
-      score: score,
-      date: Date.now()
-    });
-  });
+    // Score inférieur → on fait juste une MAJ du pseudo
+    else if (playerNickname !== data.pseudo) {
+      ref.update({
+        pseudo: playerNickname,
+        updatedAt: Date.now()
+      });
     }
+
+  });
+}
 
         // Fonction pour créer les plateformes d'un niveau spécifique
         function createPlatformsForLevel(level) {
@@ -381,6 +380,7 @@ const db = firebase.firestore();
 </body>
 
 </html>
+
 
 
 
