@@ -45,7 +45,6 @@
 <script>
 
     let deviceId = localStorage.getItem("deviceId");
-
 if (!deviceId) {
   deviceId = crypto.randomUUID();
   localStorage.setItem("deviceId", deviceId);
@@ -309,16 +308,13 @@ const db = firebase.firestore();
 
   // 💥 GAME OVER SEULEMENT ICI
   if (lives <= 0 && !gameOver) {
+  gameOver = true;
+  this.physics.pause();
+  player.setTint(0xff0000);
+  player.anims.play('turn');
 
-    gameOver = true;
-
-    this.physics.pause();
-    player.setTint(0xff0000);
-    player.anims.play('turn');
-
-    // 🔥 Envoi du score UNE SEULE FOIS
-    saveScore();
-  }
+  saveScore(); // ✅ ICI
+}
         }
 
     function saveScore() {
@@ -326,35 +322,28 @@ const db = firebase.firestore();
 
   ref.get().then(doc => {
 
-    // Aucun score encore → création
+    // Aucun score pour cet appareil → on crée
     if (!doc.exists) {
       ref.set({
         pseudo: playerNickname,
         score: score,
-        updatedAt: Date.now()
+        date: Date.now()
       });
       return;
     }
 
-    const data = doc.data();
+    const oldScore = doc.data().score;
 
-    // Nouveau record → update
-    if (score > data.score) {
+    // Nouveau record → on remplace
+    if (score > oldScore) {
       ref.set({
         pseudo: playerNickname,
         score: score,
-        updatedAt: Date.now()
+        date: Date.now()
       });
     }
 
-    // Score inférieur → on fait juste une MAJ du pseudo
-    else if (playerNickname !== data.pseudo) {
-      ref.update({
-        pseudo: playerNickname,
-        updatedAt: Date.now()
-      });
-    }
-
+    // Score inférieur → on ne fait RIEN
   });
 }
 
@@ -380,6 +369,7 @@ const db = firebase.firestore();
 </body>
 
 </html>
+
 
 
 
