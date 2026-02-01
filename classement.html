@@ -6,102 +6,83 @@
   <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png">
   <style>
     body {
-      margin: 0;
-      background: #2e2e2e;
-      color: white;
+      margin:0;
       font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
+      background:#333;
+      color:white;
+      text-align:center;
     }
-
-    h1 { margin-top: 20px; }
-
-    table {
-      border-collapse: collapse;
-      margin-top: 20px;
-      width: 80%;
-      max-width: 700px;
-      background: #1f1f1f;
-    }
-
-    th, td {
-      padding: 12px;
-      text-align: center;
-      border-bottom: 1px solid #444;
-    }
-
-    th { background: #111; font-size: 18px; }
-
-    tr.me { color: gold; font-weight: bold; }
-
-    tr:nth-child(even) { background: #262626; }
-
-    .back {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      cursor: pointer;
-      width: 100px;
-    }
+    h1 { font-size:48px; margin:40px 0 20px 0; color:#FFD700; }
+    table { margin:0 auto; border-collapse: collapse; width: 80%; max-width:600px; }
+    th, td { padding:12px; border-bottom:1px solid #555; font-size:20px; }
+    th { color:#FFD700; }
+    .highlight { color:#FFFF00; font-weight:bold; }
+    .icon { cursor:pointer; width:105px; position:fixed; top:10px; }
+    .icon.home { left:10px; }
+    .icon.refresh { right:10px; }
   </style>
 </head>
 <body>
 
-  <img src="assets/logoretour.png" class="back" onclick="location.href='index.html'">
-  <h1>🏆 Classement</h1>
+  <img src="assets/logohome.png" class="icon home" onclick="window.location.href='./index.html'">
+  <img src="assets/logorefresh.png" class="icon refresh" onclick="window.location.reload()">
 
+  <h1>Classement</h1>
   <table>
     <thead>
-      <tr>
-        <th>#</th>
-        <th>Pseudo</th>
-        <th>Score</th>
-      </tr>
+      <tr><th>Rang</th><th>Pseudo</th><th>Score</th></tr>
     </thead>
-    <tbody id="ranking"></tbody>
+    <tbody id="leaderboardBody"></tbody>
   </table>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
-  <script>
-    // Initialisation Firebase
-    firebase.initializeApp({
-      apiKey: "AIzaSyBnQb5b5h62Jl4WeiKEBMeEmivbOK-B70k",
-      authDomain: "bombgo-classement.firebaseapp.com",
-      projectId: "bombgo-classement",
-      appId: "1:113313571513:web:73863b02df8193606ef168"
-    });
+<script>
+  // ==== Firebase ====
+  firebase.initializeApp({
+    apiKey: "AIzaSyBnQb5b5h62Jl4WeiKEBMeEmivbOK-B70k",
+    authDomain: "bombgo-classement.firebaseapp.com",
+    projectId: "bombgo-classement",
+    appId: "1:113313571513:web:73863b02df8193606ef168"
+  });
+  const db = firebase.firestore();
 
-    const db = firebase.firestore();
+  // ==== Device ID ====
+  let deviceId = localStorage.getItem("deviceId");
+  if(!deviceId){ deviceId = crypto.randomUUID(); localStorage.setItem("deviceId", deviceId); }
 
-    // Récupérer deviceId pour surligner le joueur actuel
-    const deviceId = localStorage.getItem("deviceId");
-    const ranking = document.getElementById("ranking");
+  const leaderboardBody = document.getElementById("leaderboardBody");
 
-    // 🔄 Classement en temps réel
-    db.collection("scores").orderBy("score", "desc").onSnapshot(snapshot => {
-
-      // Vider le tableau
-      ranking.innerHTML = "";
-
-      let index = 1;
+  // ==== Charger le classement ====
+  function loadLeaderboard(){
+    db.collection("scores").get().then(snapshot=>{
+      let scores = [];
       snapshot.forEach(doc => {
-        const data = doc.data();
-        const tr = document.createElement("tr");
-
-        if (doc.id === deviceId) tr.classList.add("me"); // ton score en jaune
-
-        tr.innerHTML = `<td>${index}</td><td>${data.pseudo}</td><td>${data.score}</td>`;
-        ranking.appendChild(tr);
-
-        index++;
+        scores.push({id:doc.id, ...doc.data()});
       });
 
+      // Trier par score descendant
+      scores.sort((a,b)=>b.score - a.score);
+
+      // Vider le tableau
+      leaderboardBody.innerHTML="";
+
+      // Ajouter chaque joueur
+      scores.forEach((entry,index)=>{
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${index+1}</td><td>${entry.pseudo}</td><td>${entry.score}</td>`;
+        if(entry.id===deviceId) tr.classList.add("highlight");
+        leaderboardBody.appendChild(tr);
+      });
     });
-  </script>
+  }
+
+  loadLeaderboard();
+
+  // Recharger toutes les 5 secondes pour voir les mises à jour
+  setInterval(loadLeaderboard,5000);
+</script>
+
 </body>
 </html>
