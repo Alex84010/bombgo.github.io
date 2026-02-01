@@ -39,7 +39,18 @@
 
     <div id="game-wrapper" class="game-wrapper"></div>
 
-    <script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyBnQb5b5h62Jl4WeiKEBMeEmivbOK-B70k",
+  authDomain: "bombgo-classement.firebaseapp.com",
+  projectId: "bombgo-classement",
+  appId: "1:113313571513:web:73863b02df8193606ef168"
+});
+const db = firebase.firestore();
+    
         // Configuration du jeu Phaser
         var config = {
             type: Phaser.AUTO, // Type de rendu automatique
@@ -104,6 +115,9 @@
             });
         }
 
+    const playerNickname =
+  localStorage.getItem('playerNickname') || 'player';
+    
         // Fonction create: initialiser les éléments du jeu une seule fois
         function create() {
             // Ajouter l'image du ciel en arrière-plan
@@ -291,6 +305,16 @@
                 player.anims.play('turn'); // Arrêter les animations
                 gameOver = true; // Marquer le jeu comme terminé
             }
+
+            if (!gameOver) {
+  gameOver = true;
+
+  db.collection("scores").add({
+    pseudo: playerNickname,
+    score: score,
+    date: Date.now()
+  });
+            }
         }
 
         // Fonction pour créer les plateformes d'un niveau spécifique
@@ -315,6 +339,7 @@
 </body>
 
 </html>
+
 
 
 
