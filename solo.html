@@ -322,29 +322,36 @@ const db = firebase.firestore();
 
   ref.get().then(doc => {
 
-    // Aucun score pour cet appareil → on crée
+    // Si le doc n'existe pas → création
     if (!doc.exists) {
       ref.set({
         pseudo: playerNickname,
         score: score,
         date: Date.now()
       });
+      console.log("Nouveau score créé !");
       return;
     }
 
-    const oldScore = doc.data().score;
+    const oldData = doc.data();
 
-    // Nouveau record → on remplace
-    if (score > oldScore) {
+    // Si le score est supérieur → remplacer
+    if (score > oldData.score) {
       ref.set({
-        pseudo: playerNickname,
+        pseudo: playerNickname, // met à jour le pseudo aussi
         score: score,
         date: Date.now()
       });
+      console.log("Record battu ! Score mis à jour !");
+    } 
+    // Si le score est inférieur → mettre à jour le pseudo seulement
+    else if (playerNickname !== oldData.pseudo) {
+      ref.update({
+        pseudo: playerNickname
+      });
+      console.log("Pseudo mis à jour !");
     }
-
-    // Score inférieur → on ne fait RIEN
-  });
+  }).catch(err => console.error("Erreur saveScore:", err));
 }
 
         // Fonction pour créer les plateformes d'un niveau spécifique
@@ -369,6 +376,7 @@ const db = firebase.firestore();
 </body>
 
 </html>
+
 
 
 
