@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Classement</title>
+
+<style>
+body {
+  background:#222;
+  color:white;
+  font-family:Arial;
+  text-align:center;
+}
+li {
+  font-size:22px;
+  margin:10px 0;
+}
+.me {
+  color:#FFD700;
+  font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🏆 Classement mondial</h1>
+<ol id="classement"></ol>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyBnQb5b5h62Jl4WeiKEBMeEmivbOK-B70k",
+  authDomain: "bombgo-classement.firebaseapp.com",
+  projectId: "bombgo-classement",
+  appId: "1:113313571513:web:73863b02df8193606ef168"
+});
+const db = firebase.firestore();
+
+const myPseudo = localStorage.getItem('playerNickname');
+const list = document.getElementById('classement');
+
+db.collection("scores")
+  .orderBy("score", "desc")
+  .limit(20)
+  .onSnapshot(snapshot => {
+    list.innerHTML = '';
+    snapshot.forEach(doc => {
+      const d = doc.data();
+      const li = document.createElement('li');
+      li.textContent = `${d.pseudo} — ${d.score}`;
+      if (d.pseudo === myPseudo) li.classList.add('me');
+      list.appendChild(li);
+    });
+  });
+</script>
+
+</body>
+</html>
+
