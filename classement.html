@@ -1,88 +1,127 @@
 <!doctype html>
 <html lang="fr">
+
 <head>
   <meta charset="UTF-8">
   <title>Classement</title>
   <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png">
   <style>
     body {
-      margin:0;
+      margin: 0;
+      background: #333;
+      color: white;
       font-family: Arial, sans-serif;
-      background:#333;
-      color:white;
-      text-align:center;
+      text-align: center;
     }
-    h1 { font-size:48px; margin:40px 0 20px 0; color:#FFD700; }
-    table { margin:0 auto; border-collapse: collapse; width: 80%; max-width:600px; }
-    th, td { padding:12px; border-bottom:1px solid #555; font-size:20px; }
-    th { color:#FFD700; }
-    .highlight { color:#FFFF00; font-weight:bold; }
-    .icon { cursor:pointer; width:105px; position:fixed; top:10px; }
-    .icon.home { left:10px; }
-    .icon.refresh { right:10px; }
+
+    h1 {
+      font-size: 48px;
+      margin-top: 50px;
+      margin-bottom: 30px;
+      color: #FFD700;
+    }
+
+    #leaderboard {
+      max-width: 500px;
+      margin: 0 auto;
+      font-size: 24px;
+      text-align: left;
+    }
+
+    #leaderboard div {
+      padding: 10px;
+      border-bottom: 1px solid #555;
+    }
+
+    #leaderboard div:last-child {
+      border-bottom: none;
+    }
+
+    .highlight {
+      color: yellow;
+      font-weight: bold;
+    }
+
+    .btn {
+      margin-top: 30px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 15px 40px;
+      font-size: 20px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      background: #45a049;
+    }
   </style>
 </head>
+
 <body>
 
-  <img src="assets/logohome.png" class="icon home" onclick="window.location.href='./index.html'">
-  <img src="assets/logorefresh.png" class="icon refresh" onclick="window.location.reload()">
-
   <h1>Classement</h1>
-  <table>
-    <thead>
-      <tr><th>Rang</th><th>Pseudo</th><th>Score</th></tr>
-    </thead>
-    <tbody id="leaderboardBody"></tbody>
-  </table>
+  <div id="leaderboard">Chargement...</div>
+  <button class="btn" onclick="window.location.href='./index.html'">Retour</button>
 
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
-<script>
-  // ==== Firebase ====
-  firebase.initializeApp({
-    apiKey: "AIzaSyBnQb5b5h62Jl4WeiKEBMeEmivbOK-B70k",
-    authDomain: "bombgo-classement.firebaseapp.com",
-    projectId: "bombgo-classement",
-    appId: "1:113313571513:web:73863b02df8193606ef168"
-  });
-  const db = firebase.firestore();
+  <script>
+    // Créer deviceId si inexistant
+    let deviceId = localStorage.getItem("deviceId");
+    if (!deviceId) {
+      deviceId = crypto.randomUUID();
+      localStorage.setItem("deviceId", deviceId);
+    }
 
-  // ==== Device ID ====
-  let deviceId = localStorage.getItem("deviceId");
-  if(!deviceId){ deviceId = crypto.randomUUID(); localStorage.setItem("deviceId", deviceId); }
+    let playerNickname = localStorage.getItem("playerNickname") || "player";
 
-  const leaderboardBody = document.getElementById("leaderboardBody");
-
-  // ==== Charger le classement ====
-  function loadLeaderboard(){
-    db.collection("scores").get().then(snapshot=>{
-      let scores = [];
-      snapshot.forEach(doc => {
-        scores.push({id:doc.id, ...doc.data()});
-      });
-
-      // Trier par score descendant
-      scores.sort((a,b)=>b.score - a.score);
-
-      // Vider le tableau
-      leaderboardBody.innerHTML="";
-
-      // Ajouter chaque joueur
-      scores.forEach((entry,index)=>{
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${index+1}</td><td>${entry.pseudo}</td><td>${entry.score}</td>`;
-        if(entry.id===deviceId) tr.classList.add("highlight");
-        leaderboardBody.appendChild(tr);
-      });
+    // Initialisation Firebase
+    firebase.initializeApp({
+      apiKey: "AIzaSyBnQb5b5h62Jl4WeiKEBMeEmivbOK-B70k",
+      authDomain: "bombgo-classement.firebaseapp.com",
+      projectId: "bombgo-classement",
+      appId: "1:113313571513:web:73863b02df8193606ef168"
     });
-  }
 
-  loadLeaderboard();
+    const db = firebase.firestore();
 
-  // Recharger toutes les 5 secondes pour voir les mises à jour
-  setInterval(loadLeaderboard,5000);
-</script>
+    // Charger le classement
+    function loadLeaderboard() {
+      db.collection("scores")
+        .orderBy("score", "desc")
+        .limit(10)
+        .get()
+        .then(snapshot => {
+          const container = document.getElementById("leaderboard");
+          container.innerHTML = "";
+
+          if (snapshot.empty) {
+            container.textContent = "Aucun score pour le moment.";
+            return;
+          }
+
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            const div = document.createElement("div");
+            div.textContent = `${data.pseudo} : ${data.score}`;
+            if (doc.id === deviceId) {
+              div.classList.add("highlight");
+            }
+            container.appendChild(div);
+          });
+        })
+        .catch(err => {
+          console.error("Erreur leaderboard:", err);
+          document.getElementById("leaderboard").textContent = "Erreur de chargement du classement.";
+        });
+    }
+
+    window.onload = loadLeaderboard;
+  </script>
 
 </body>
+
 </html>
