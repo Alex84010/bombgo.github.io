@@ -43,13 +43,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
-firebase.initializeApp({
-  apiKey: "AIzaSyBnQb5b5h62Jl4WeiKEBMeEmivbOK-B70k",
-  authDomain: "bombgo-classement.firebaseapp.com",
-  projectId: "bombgo-classement",
-  appId: "1:113313571513:web:73863b02df8193606ef168"
-});
-const db = firebase.firestore();
 
     let deviceId = localStorage.getItem("deviceId");
 
@@ -57,6 +50,14 @@ if (!deviceId) {
   deviceId = crypto.randomUUID();
   localStorage.setItem("deviceId", deviceId);
 }
+    
+firebase.initializeApp({
+  apiKey: "AIzaSyBnQb5b5h62Jl4WeiKEBMeEmivbOK-B70k",
+  authDomain: "bombgo-classement.firebaseapp.com",
+  projectId: "bombgo-classement",
+  appId: "1:113313571513:web:73863b02df8193606ef168"
+});
+const db = firebase.firestore();
     
         // Configuration du jeu Phaser
         var config = {
@@ -380,6 +381,7 @@ if (!deviceId) {
 </body>
 
 </html>
+
 
 
 
