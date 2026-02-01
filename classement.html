@@ -8,37 +8,40 @@
   <style>
     body {
       margin: 0;
-      background: #333;
+      background-color: #222;
       color: white;
-      font-family: Arial, sans-serif;
+      font-family: "Arial", sans-serif;
       text-align: center;
     }
 
     h1 {
-      font-size: 48px;
-      margin-top: 50px;
-      margin-bottom: 30px;
+      font-size: 50px;
+      margin: 40px 0;
       color: #FFD700;
+      text-shadow: 2px 2px #000;
     }
 
     table {
       margin: 0 auto;
       border-collapse: collapse;
-      width: 60%;
-      max-width: 600px;
+      width: 70%;
+      max-width: 700px;
       font-size: 22px;
+      background-color: #333;
+      border: 4px solid #555;
+      box-shadow: 0 0 20px #000;
     }
 
     th, td {
-      border: 1px solid #555;
+      border: 3px solid #555;
       padding: 12px 20px;
-      text-align: left;
     }
 
     th {
       background-color: #444;
       color: #FFD700;
       font-size: 24px;
+      text-shadow: 1px 1px #000;
     }
 
     td {
@@ -49,6 +52,7 @@
       background-color: #444400;
       color: yellow;
       font-weight: bold;
+      text-shadow: 1px 1px #000;
     }
 
     .btn {
@@ -56,14 +60,20 @@
       background: #4CAF50;
       color: white;
       border: none;
-      padding: 15px 40px;
+      padding: 15px 50px;
       font-size: 20px;
-      border-radius: 10px;
+      border-radius: 12px;
       cursor: pointer;
+      box-shadow: 0 5px #2e7d32;
     }
 
     .btn:hover {
       background: #45a049;
+    }
+
+    .btn:active {
+      box-shadow: 0 2px #2e7d32;
+      transform: translateY(3px);
     }
 
   </style>
@@ -92,7 +102,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
   <script>
-    // Créer deviceId si inexistant
+    // Créer deviceId unique si inexistant
     let deviceId = localStorage.getItem("deviceId");
     if (!deviceId) {
       deviceId = crypto.randomUUID();
@@ -132,6 +142,7 @@
             const data = doc.data();
             const tr = document.createElement("tr");
 
+            // Highlight du joueur actuel
             if (doc.id === deviceId) {
               tr.classList.add("highlight");
             }
@@ -155,5 +166,4 @@
   </script>
 
 </body>
-
 </html>
