@@ -299,45 +299,58 @@ const db = firebase.firestore();
 
         // Fonction appelée quand le joueur touche une bombe
         function hitBomb(player, bomb) {
+    bomb.disableBody(true, true);
+    lives--;
 
-  bomb.disableBody(true, true);
-  lives--;
+    if (lives >= 0) {
+        lifeIcons[lives].setTexture('novie').setScale(0.02);
+    }
 
-  // Met à jour l'affichage des vies
-  if (lives >= 0) {
-    lifeIcons[lives]
-      .setTexture('novie')
-      .setScale(0.02);
-  }
+    if (lives <= 0 && !gameOver) {
+        gameOver = true;
+        this.physics.pause();
+        player.setTint(0xff0000);
+        player.anims.play('turn');
 
-  // 💥 GAME OVER SEULEMENT ICI
-  if (lives <= 0 && !gameOver) {
-    gameOver = true;
-    this.physics.pause();
-    player.setTint(0xff0000);
-    player.anims.play('turn');
+        // 🔥 Sauvegarde du score
+        saveScore();
+    }
+}
 
-    // 🔥 Sauvegarde du score et pseudo
+// Fonction qui gère le score et pseudo
+function saveScore() {
     const ref = db.collection("scores").doc(deviceId);
 
     ref.get().then(doc => {
         if (!doc.exists) {
-            // Création du document
-            ref.set({ pseudo: playerNickname, score: score, date: Date.now() });
-        } else {
-            const old = doc.data();
-            if (score > old.score) {
-                // Nouveau record
-                ref.set({ pseudo: playerNickname, score: score, date: Date.now() });
-            } else if (playerNickname !== old.pseudo) {
-                // Juste un changement de pseudo
-                ref.update({ pseudo: playerNickname });
-            }
-            // Sinon : score inférieur et pseudo identique → rien
+            // Nouveau joueur
+            ref.set({
+                pseudo: playerNickname,
+                score: score,
+                date: Date.now()
+            });
+            console.log("Score créé !");
+            return;
         }
-    });
+
+        const oldData = doc.data();
+
+        if (score > oldData.score) {
+            // Nouveau record : mettre à jour score + pseudo
+            ref.set({
+                pseudo: playerNickname,
+                score: score,
+                date: Date.now()
+            }, { merge: true });
+            console.log("Record battu ! Score mis à jour !");
+        } else if (playerNickname !== oldData.pseudo) {
+            // Seulement pseudo changé
+            ref.update({ pseudo: playerNickname });
+            console.log("Pseudo mis à jour !");
+        }
+        // Si score inférieur et pseudo identique => rien
+    }).catch(err => console.error("Erreur saveScore:", err));
 }
-        }
 
     function saveScore() {
   const ref = db.collection("scores").doc(deviceId);
@@ -398,6 +411,7 @@ const db = firebase.firestore();
 </body>
 
 </html>
+
 
 
 
