@@ -3,269 +3,188 @@
 <head>
   <meta charset="UTF-8">
   <title>Duo</title>
-  <link rel="icon" type="image/png" href="./favicon.png">
-
-  <!-- Phaser -->
-  <script src="https://cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
-
-  <!-- Firebase compat -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
+  <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png">
   <style>
-    body {
-      margin:0;
-      background:#333;
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      height:100vh;
-    }
-    canvas {
-      border:4px solid #111;
-    }
-    #status {
-      position:fixed;
-      top:10px;
-      color:white;
-      font-size:20px;
-    }
+    body { margin:0; background:#333; color:white; font-family:Arial; text-align:center; display:flex; justify-content:center; align-items:center; height:100vh; }
+    canvas { border:4px solid #111; }
+    .icon { cursor:pointer; width:105px; position:fixed; top:10px; }
+    .icon.home { left:10px; }
+    .icon.refresh { right:10px; }
+    #status { position:fixed; top:130px; width:100%; text-align:center; font-size:24px; color:#FFD700; }
   </style>
 </head>
-
 <body>
 
+<img src="assets/logohome.png" class="icon home" onclick="window.location.href='./index.html'">
+<img src="assets/logorefresh.png" class="icon refresh" onclick="window.location.reload()">
 <div id="status">Recherche d'un joueur...</div>
-<div id="game"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
-/* ================= FIREBASE ================= */
+  // ===== Firebase =====
+  const firebaseConfig = {
+    apiKey: "AIzaSyA-LI-eVf069LVpkybZh1PBvDKgE_r-WKE",
+    authDomain: "bombgo-duo.firebaseapp.com",
+    projectId: "bombgo-duo",
+    storageBucket: "bombgo-duo.firebasestorage.app",
+    messagingSenderId: "145372656449",
+    appId: "1:145372656449:web:8c2df41a5911d76757a7c0"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
-firebase.initializeApp({
-  apiKey: "AIzaSyA-LI-eVf069LVpkybZh1PBvDKgE_r-WKE",
-  authDomain: "bombgo-duo.firebaseapp.com",
-  projectId: "bombgo-duo",
-  appId: "1:145372656449:web:8c2df41a5911d76757a7c0"
-});
-
-const db = firebase.firestore();
-
-/* ================= IDENTITÉ ================= */
-
-let deviceId = localStorage.getItem("deviceId");
-if (!deviceId) {
-  deviceId = crypto.randomUUID();
+  // ===== Device & pseudo =====
+  const deviceId = localStorage.getItem("deviceId") || crypto.randomUUID();
   localStorage.setItem("deviceId", deviceId);
-}
+  const pseudo = localStorage.getItem("playerNickname") || "player";
 
-const pseudo = localStorage.getItem("playerNickname") || "player";
+  // ===== Variables globales =====
+  let gameId = null;
+  let isHost = false;
+  let opponentId = null;
+  let player, opponent;
+  let cursors, stars, bombs, platforms;
+  let score = 0, lives = 3;
+  let opponentLives = 3;
+  let gameStarted = false;
 
-/* ================= MATCHMAKING ================= */
+  const statusText = document.getElementById("status");
 
-let gameId = null;
-let isHost = false;
-let opponentId = null;
-
-async function findGame() {
-  const waiting = await db.collection("games")
-    .where("status", "==", "waiting")
-    .limit(1)
-    .get();
-
-  if (!waiting.empty) {
-    // Rejoindre
-    const doc = waiting.docs[0];
-    gameId = doc.id;
-    opponentId = doc.data().hostId;
-
-    await db.collection("games").doc(gameId).update({
-      status: "playing"
-    });
-
-    await db.collection("games").doc(gameId)
-      .collection("players").doc(deviceId).set({
-        pseudo,
-        x: 600,
-        y: 450,
-        lives: 3
-      });
-
-    startGame();
-  } else {
-    // Créer
-    isHost = true;
-    const ref = await db.collection("games").add({
-      status: "waiting",
-      hostId: deviceId,
-      createdAt: Date.now(),
-      world: {
-        stars: [],
-        bombs: []
-      }
-    });
-
-    gameId = ref.id;
-
-    await ref.collection("players").doc(deviceId).set({
-      pseudo,
-      x: 100,
-      y: 450,
-      lives: 3
-    });
-
-    // attendre un joueur
-    db.collection("games").doc(gameId).onSnapshot(doc => {
-      if (doc.data().status === "playing") startGame();
-    });
-  }
-}
-
-findGame();
-
-/* ================= PHASER ================= */
-
-let player, enemy;
-let cursors;
-let stars, bombs;
-let livesText, enemyLivesText;
-let gameOver = false;
-
-function startGame() {
-  document.getElementById("status").innerText = "Partie en cours";
-
+  // ===== Phaser config =====
   const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    parent: "game",
-    physics: {
-      default: "arcade",
-      arcade: { gravity: { y: 300 }, debug: false }
-    },
+    physics: { default: 'arcade', arcade: { gravity: { y: 300 }, debug: false } },
     scene: { preload, create, update }
   };
 
-  new Phaser.Game(config);
-}
+  let phaserGame = new Phaser.Game(config);
 
-function preload() {
-  this.load.image("sky", "assets/sky.png");
-  this.load.image("ground", "assets/platform.png");
-  this.load.image("star", "assets/piece.png");
-  this.load.image("bomb", "assets/bombe.png");
-  this.load.spritesheet("dude", "assets/personnageframe1.png", {
-    frameWidth: 320,
-    frameHeight: 480
-  });
-}
-
-function create() {
-  this.add.image(400, 300, "sky");
-
-  platforms = this.physics.add.staticGroup();
-  platforms.create(400, 568, "ground").setScale(2).refreshBody();
-
-  player = this.physics.add.sprite(100, 450, "dude").setScale(0.125);
-  enemy = this.physics.add.sprite(600, 450, "dude").setScale(0.125).setTint(0xff0000);
-
-  player.setCollideWorldBounds(true);
-  enemy.setCollideWorldBounds(true);
-
-  this.physics.add.collider(player, platforms);
-  this.physics.add.collider(enemy, platforms);
-
-  cursors = this.input.keyboard.createCursorKeys();
-
-  stars = this.physics.add.group();
-  bombs = this.physics.add.group();
-
-  this.physics.add.overlap(player, stars, collectStar, null, this);
-  this.physics.add.collider(player, bombs, hitBomb, null, this);
-
-  livesText = this.add.text(16,16,"Vies: 3",{fontSize:"24px",fill:"#fff"});
-  enemyLivesText = this.add.text(600,16,"Adv: 3",{fontSize:"24px",fill:"#fff"});
-
-  syncPlayers();
-  if (isHost) spawnWorld(this);
-}
-
-function update() {
-  if (gameOver) return;
-
-  if (cursors.left.isDown) player.setVelocityX(-160);
-  else if (cursors.right.isDown) player.setVelocityX(160);
-  else player.setVelocityX(0);
-
-  if (cursors.up.isDown && player.body.touching.down) {
-    player.setVelocityY(-330);
+  // ===== Preload assets =====
+  function preload() {
+    this.load.image('sky','assets/sky.png');
+    this.load.image('ground','assets/platform.png');
+    this.load.image('star','assets/piece.png');
+    this.load.image('bomb','assets/bombe.png');
+    this.load.spritesheet('dude',`assets/personnageframe${localStorage.getItem('selectedCharacter')||'1'}.png`, { frameWidth:320, frameHeight:480 });
   }
 
-  db.collection("games").doc(gameId)
-    .collection("players").doc(deviceId)
-    .update({ x: player.x, y: player.y });
-}
+  // ===== Créer le jeu =====
+  function create() {
+    this.add.image(400,300,'sky');
+    platforms = this.physics.add.staticGroup();
+    platforms.create(400,568,'ground').setScale(2).refreshBody();
 
-/* ================= SYNC ================= */
+    player = this.physics.add.sprite(100,450,'dude').setScale(0.125).setCollideWorldBounds(true);
+    opponent = this.physics.add.sprite(700,450,'dude').setScale(0.125).setCollideWorldBounds(true);
 
-function syncPlayers() {
-  db.collection("games").doc(gameId)
-    .collection("players")
-    .onSnapshot(snapshot => {
-      snapshot.forEach(doc => {
-        if (doc.id !== deviceId) {
-          opponentId = doc.id;
-          enemy.setPosition(doc.data().x, doc.data().y);
-          enemyLivesText.setText("Adv: " + doc.data().lives);
-        } else {
-          livesText.setText("Vies: " + doc.data().lives);
-        }
+    this.physics.add.collider(player, platforms);
+    this.physics.add.collider(opponent, platforms);
+
+    // Animations
+    this.anims.create({ key:'left', frames:this.anims.generateFrameNumbers('dude',{start:0,end:3}), frameRate:10, repeat:-1 });
+    this.anims.create({ key:'turn', frames:[{key:'dude',frame:4}], frameRate:20 });
+    this.anims.create({ key:'right', frames:this.anims.generateFrameNumbers('dude',{start:5,end:8}), frameRate:10, repeat:-1 });
+
+    cursors = this.input.keyboard.createCursorKeys();
+
+    stars = this.physics.add.group({ key:'star', repeat:11, setXY:{x:12,y:0,stepX:70} });
+    stars.children.iterate(s=>{ s.setBounceY(Phaser.Math.FloatBetween(0.4,0.8)); s.setScale(0.015); });
+    this.physics.add.collider(stars, platforms);
+
+    bombs = this.physics.add.group();
+    this.physics.add.collider(bombs, platforms);
+    this.physics.add.collider(player, bombs, ()=>hitBomb(deviceId), null, this);
+
+    // Commencer le matchmaking
+    findGame();
+  }
+
+  // ===== Update =====
+  function update() {
+    if(!gameStarted) return;
+
+    if(cursors.left.isDown){ player.setVelocityX(-160); player.anims.play('left',true); }
+    else if(cursors.right.isDown){ player.setVelocityX(160); player.anims.play('right',true); }
+    else { player.setVelocityX(0); player.anims.play('turn'); }
+
+    if(cursors.up.isDown && player.body.touching.down){ player.setVelocityY(-330); }
+
+    // Envoyer position et vies à Firebase
+    if(gameId) {
+      db.collection("games").doc(gameId).collection("players").doc(deviceId).set({
+        x: player.x,
+        y: player.y,
+        lives
+      }, { merge:true });
+    }
+  }
+
+  // ===== Bombes touchées =====
+  function hitBomb(id){
+    if(id===deviceId){ lives--; }
+    if(lives<=0){ endGame(false); }
+  }
+
+  // ===== Fin du jeu =====
+  function endGame(win){
+    gameStarted=false;
+    alert(win?"Vous avez gagné !":"Vous avez perdu !");
+  }
+
+  // ===== Matchmaking =====
+  async function findGame(){
+    statusText.innerText="Recherche d'un joueur...";
+    const waiting = await db.collection("games").where("status","==","waiting").limit(1).get();
+    if(!waiting.empty){
+      // Rejoindre
+      const doc = waiting.docs[0];
+      gameId = doc.id;
+      opponentId = doc.data().hostId;
+
+      await db.collection("games").doc(gameId).collection("players").doc(deviceId).set({
+        pseudo,
+        x:600, y:450, lives:3
       });
-    });
-}
+      await db.collection("games").doc(gameId).update({ status:"playing" });
+      startGame();
+    } else {
+      // Créer
+      isHost=true;
+      const ref = await db.collection("games").add({ status:"waiting", hostId:deviceId, createdAt:Date.now() });
+      gameId = ref.id;
+      await ref.collection("players").doc(deviceId).set({ pseudo, x:100, y:450, lives:3 });
 
-/* ================= WORLD ================= */
-
-function spawnWorld(scene) {
-  for (let i = 0; i < 10; i++) {
-    const x = Phaser.Math.Between(50, 750);
-    const star = stars.create(x, 0, "star").setScale(0.015);
+      // Attendre que le joueur rejoigne
+      db.collection("games").doc(gameId).onSnapshot(doc=>{
+        if(doc.data().status==="playing"){ startGame(); }
+      });
+    }
   }
 
-  scene.time.addEvent({
-    delay: 3000,
-    loop: true,
-    callback: () => {
-      const x = Phaser.Math.Between(50, 750);
-      bombs.create(x, 0, "bomb").setScale(0.015);
-    }
-  });
-}
+  // ===== Lancer le jeu =====
+  function startGame(){
+    gameStarted=true;
+    statusText.innerText="Partie en cours";
 
-/* ================= EVENTS ================= */
-
-function collectStar(player, star) {
-  star.disableBody(true,true);
-}
-
-function hitBomb(player, bomb) {
-  bomb.disableBody(true,true);
-
-  const ref = db.collection("games").doc(gameId)
-    .collection("players").doc(deviceId);
-
-  ref.get().then(doc => {
-    let lives = doc.data().lives - 1;
-    ref.update({ lives });
-
-    if (lives <= 0) {
-      gameOver = true;
-      alert("Perdu !");
-      db.collection("games").doc(gameId).delete();
-    }
-  });
-}
+    // Observer l'adversaire
+    db.collection("games").doc(gameId).collection("players")
+      .onSnapshot(snapshot=>{
+        snapshot.docs.forEach(doc=>{
+          if(doc.id!==deviceId){
+            const data = doc.data();
+            opponent.x = data.x;
+            opponent.y = data.y;
+            opponentLives = data.lives;
+            if(opponentLives<=0){ endGame(true); }
+          }
+        });
+      });
+  }
 </script>
-
 </body>
 </html>
-
