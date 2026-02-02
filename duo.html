@@ -466,13 +466,11 @@
     for(let i=0; i<3; i++) {
       myLifeIcons.push(this.add.image(40+i*45, 40, 'vie').setScale(0.02));
     }
-    this.add.text(16, 70, 'Vous', {fontSize:'20px', fill:'#fff', fontStyle: 'bold'});
 
     // Vies de l'adversaire (à droite)
     for(let i=0; i<3; i++) {
       opponentLifeIcons.push(this.add.image(800-40-i*45, 40, 'vie').setScale(0.02));
     }
-    this.add.text(800-100, 70, 'Adversaire', {fontSize:'20px', fill:'#fff', fontStyle: 'bold'});
 
     platforms = this.physics.add.staticGroup();
     platforms.create(400,568,'ground').setScale(2).refreshBody();
@@ -528,7 +526,11 @@
     cursors = this.input.keyboard.createCursorKeys();
 
     stars = this.physics.add.group({key:'star', repeat:11, setXY:{x:12,y:0,stepX:70}});
-    stars.children.iterate(c => { c.setBounceY(Phaser.Math.FloatBetween(0.4,0.8)); c.setScale(0.015); });
+    stars.children.iterate(c => { 
+      c.setBounceY(Phaser.Math.FloatBetween(0.4,0.8)); 
+      c.setScale(0.015);
+      c.setGravityY(200); // Gravité supplémentaire pour les pièces
+    });
 
     bombs = this.physics.add.group();
 
@@ -674,6 +676,7 @@
       stars.children.entries.forEach((star, i) => {
         if (data.stars[i]) {
           star.enableBody(true, star.x, star.y, true, true);
+          star.setGravityY(200); // Remettre la gravité
         } else {
           star.disableBody(true, true);
         }
@@ -687,9 +690,12 @@
       
       // Créer les nouvelles bombes
       data.bombs.forEach(b => {
-        const bomb = bombs.create(b.x, b.y, 'bomb').setScale(0.015);
-        bomb.body.setSize(bomb.width*0.015, bomb.height*0.015);
-        bomb.setBounce(1).setCollideWorldBounds(true).setVelocity(b.vx, 20);
+        const bomb = bombs.create(b.x, b.y, 'bomb');
+        bomb.setScale(0.015);
+        bomb.setBounce(1);
+        bomb.setCollideWorldBounds(true);
+        bomb.setVelocity(b.vx, 20);
+        bomb.body.setCircle(bomb.width * 32); // Collision circulaire appropriée
       });
     }
     
