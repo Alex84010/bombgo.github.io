@@ -662,4 +662,12 @@
 
   // Nettoyage à la fermeture
   window.addEventListener('beforeunload', () => {
-    if (unsubscr
+    if (unsubscribe) unsubscribe();
+    if (gameId && isPlayer1) {
+      db.collection("matchmaking").doc(gameId).delete().catch(() => {});
+    }
+  });
+
+</script>
+</body>
+</html>
