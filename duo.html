@@ -1,196 +1,591 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>Duo</title>
-<link rel="icon" type="image/png" sizes="64x64" href="./favicon.png">
-<style>
-  body { margin:0; background:#333; display:flex; justify-content:center; align-items:center; height:100vh; font-family:Arial, sans-serif; }
-  canvas { border:4px solid #111; }
-  .life { position:absolute; top:10px; width:30px; height:30px; }
-  #myLives { left:10px; }
-  #enemyLives { right:10px; }
-</style>
+  <meta charset="UTF-8">
+  <title>Mode Duo</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png">
+  
+  <!-- Phaser -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+  
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      background-color: #413d3d;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: Arial, sans-serif;
+    }
+    canvas { border: 4px solid #291515; }
+
+    .icon { cursor:pointer; width:105px; position:fixed; top:10px; }
+    .icon.home { left:10px; }
+    .icon.retour { left:125px; }
+    .icon.refresh { right:10px; }
+
+    /* Modal de matchmaking */
+    #matchmaking-modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    #matchmaking-content {
+      background: #fff;
+      padding: 40px;
+      border-radius: 15px;
+      text-align: center;
+      max-width: 400px;
+    }
+    #matchmaking-content h2 {
+      margin-top: 0;
+      color: #333;
+    }
+    #matchmaking-content p {
+      color: #666;
+      margin: 20px 0;
+    }
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    #cancel-btn {
+      margin-top: 20px;
+      padding: 10px 30px;
+      background: #e74c3c;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    #cancel-btn:hover {
+      background: #c0392b;
+    }
+
+    /* Modal de fin de partie */
+    #gameover-modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.9);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    #gameover-content {
+      background: #fff;
+      padding: 50px;
+      border-radius: 15px;
+      text-align: center;
+      max-width: 500px;
+    }
+    #gameover-content h2 {
+      margin-top: 0;
+      font-size: 36px;
+    }
+    .victory { color: #27ae60; }
+    .defeat { color: #e74c3c; }
+    #gameover-content p {
+      color: #666;
+      font-size: 20px;
+      margin: 20px 0;
+    }
+    .btn-group {
+      margin-top: 30px;
+    }
+    .btn-group button {
+      margin: 0 10px;
+      padding: 15px 30px;
+      font-size: 18px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .btn-replay {
+      background: #3498db;
+      color: white;
+    }
+    .btn-replay:hover {
+      background: #2980b9;
+    }
+    .btn-home {
+      background: #95a5a6;
+      color: white;
+    }
+    .btn-home:hover {
+      background: #7f8c8d;
+    }
+  </style>
 </head>
 <body>
 
-<img src="assets/logohome.png" style="position:fixed; top:10px; left:10px; width:105px; cursor:pointer;" onclick="window.location.href='./index.html'">
-<img src="assets/logorefresh.png" style="position:fixed; top:10px; right:10px; width:105px; cursor:pointer;" onclick="window.location.reload()">
+  <img src="assets/logohome.png" class="icon home" onclick="window.location.href='./index.html'">
+  <img src="assets/logoretour.png" class="icon retour" onclick="window.location.href='./index.html'">
+  <img src="assets/logorefresh.png" class="icon refresh" onclick="location.reload()">
 
-<div id="game-wrapper"></div>
-<div id="myLives"></div>
-<div id="enemyLives"></div>
+  <div id="game-wrapper"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <!-- Modal de matchmaking -->
+  <div id="matchmaking-modal">
+    <div id="matchmaking-content">
+      <h2>Recherche d'un adversaire...</h2>
+      <div class="spinner"></div>
+      <p id="matchmaking-status">En attente d'un joueur</p>
+      <button id="cancel-btn">Annuler</button>
+    </div>
+  </div>
+
+  <!-- Modal de fin de partie -->
+  <div id="gameover-modal">
+    <div id="gameover-content">
+      <h2 id="result-title"></h2>
+      <p id="result-message"></p>
+      <div class="btn-group">
+        <button class="btn-replay" onclick="location.reload()">Rejouer</button>
+        <button class="btn-home" onclick="window.location.href='./index.html'">Menu</button>
+      </div>
+    </div>
+  </div>
 
 <script>
-  // ======== Firebase ========
-  const firebaseConfig = {
+  // ==== Firebase ====
+  firebase.initializeApp({
     apiKey: "AIzaSyA-LI-eVf069LVpkybZh1PBvDKgE_r-WKE",
     authDomain: "bombgo-duo.firebaseapp.com",
     projectId: "bombgo-duo",
     storageBucket: "bombgo-duo.firebasestorage.app",
     messagingSenderId: "145372656449",
     appId: "1:145372656449:web:8c2df41a5911d76757a7c0"
-  };
-  firebase.initializeApp(firebaseConfig);
+  });
   const db = firebase.firestore();
 
-  // ======== Device et pseudo ========
+  // ==== Device ID ====
   let deviceId = localStorage.getItem("deviceId");
   if(!deviceId){ deviceId = crypto.randomUUID(); localStorage.setItem("deviceId", deviceId); }
-  const playerNickname = localStorage.getItem("playerNickname") || "player";
 
-  // ======== Matchmaking ========
-  let roomId = null;
-  let playerNumber = 1; // 1 ou 2
-  async function joinRoom() {
-    const rooms = await db.collection("rooms").where("full","==",false).get();
-    if(rooms.empty){
-      // Créer une nouvelle room
-      const roomRef = await db.collection("rooms").add({full:false});
-      roomId = roomRef.id;
-      playerNumber = 1;
-      db.collection("players").doc(deviceId).set({
-        room: roomId,
-        pseudo: playerNickname,
-        number: 1,
-        x:100,
-        y:450,
-        score:0,
-        lives:3
+  let playerNickname = localStorage.getItem("playerNickname") || "player";
+
+  // ==== Variables globales ====
+  var player, otherPlayer, cursors, stars, bombs, platforms;
+  var myLives = 3, opponentLives = 3;
+  var myLifeIcons = [], opponentLifeIcons = [];
+  var gameOver = false;
+  var currentLevel = 0;
+  var platformsArray = [];
+  
+  // Variables multijoueur
+  var gameId = null;
+  var playerId = deviceId;
+  var isPlayer1 = false;
+  var gameRef = null;
+  var unsubscribe = null;
+
+  // ==== Layout des niveaux ====
+  var platformLayouts = [
+    [{x:600,y:400},{x:50,y:250},{x:750,y:220}],
+    [{x:150,y:350},{x:400,y:200},{x:650,y:300},{x:400,y:470}],
+    [{x:700,y:250},{x:80,y:150},{x:500,y:400}],
+    [{x:300,y:420},{x:40,y:200},{x:650,y:120},{x:400,y:300}],
+    [{x:200,y:380},{x:40,y:140},{x:600,y:240},{x:350,y:100}]
+  ];
+
+  // ==== Matchmaking ====
+  async function findMatch() {
+    const matchmakingRef = db.collection("matchmaking");
+    
+    // Chercher une partie en attente
+    const snapshot = await matchmakingRef.where("status", "==", "waiting").limit(1).get();
+    
+    if (!snapshot.empty) {
+      // Rejoindre une partie existante
+      const doc = snapshot.docs[0];
+      gameId = doc.id;
+      isPlayer1 = false;
+      
+      await matchmakingRef.doc(gameId).update({
+        player2: playerId,
+        player2Name: playerNickname,
+        status: "playing"
       });
+      
+      startGame();
     } else {
-      // Rejoindre la première room dispo
-      const roomRef = rooms.docs[0];
-      roomId = roomRef.id;
-      playerNumber = 2;
-      await db.collection("players").doc(deviceId).set({
-        room: roomId,
-        pseudo: playerNickname,
-        number:2,
-        x:700,
-        y:450,
-        score:0,
-        lives:3
+      // Créer une nouvelle partie
+      const newGame = await matchmakingRef.add({
+        player1: playerId,
+        player1Name: playerNickname,
+        player2: null,
+        player2Name: null,
+        status: "waiting",
+        created: firebase.firestore.FieldValue.serverTimestamp()
       });
-      await db.collection("rooms").doc(roomId).update({full:true});
+      
+      gameId = newGame.id;
+      isPlayer1 = true;
+      
+      // Attendre le second joueur
+      waitForOpponent();
     }
   }
 
-  // ======== Phaser ========
-  let config = {
-    type: Phaser.AUTO,
-    width:800,
-    height:600,
-    physics:{ default:'arcade', arcade:{ gravity:{y:300}, debug:false } },
-    scene:{ preload, create, update }
-  };
-  let game = new Phaser.Game(config);
+  function waitForOpponent() {
+    const matchmakingRef = db.collection("matchmaking").doc(gameId);
+    
+    unsubscribe = matchmakingRef.onSnapshot(doc => {
+      const data = doc.data();
+      if (data && data.status === "playing") {
+        unsubscribe();
+        startGame();
+      }
+    });
+  }
 
-  let player, enemy;
-  let cursors;
-  let stars, bombs;
-  let platforms;
-  let myLives = 3, enemyLives = 3;
-  let gameOver = false;
+  function startGame() {
+    document.getElementById("matchmaking-modal").style.display = "none";
+    
+    // Initialiser la référence du jeu
+    gameRef = db.collection("games").doc(gameId);
+    
+    // Initialiser l'état du jeu
+    if (isPlayer1) {
+      gameRef.set({
+        player1Lives: 3,
+        player2Lives: 3,
+        player1X: 100,
+        player1Y: 450,
+        player2X: 700,
+        player2Y: 450,
+        currentLevel: 0,
+        stars: Array(12).fill(true),
+        bombs: [],
+        gameOver: false,
+        winner: null
+      });
+    }
+    
+    // Écouter les changements
+    unsubscribe = gameRef.onSnapshot(doc => {
+      const data = doc.data();
+      if (data) {
+        updateGameState(data);
+      }
+    });
+    
+    // Démarrer Phaser
+    initPhaser();
+  }
+
+  // Annuler le matchmaking
+  document.getElementById("cancel-btn").addEventListener("click", async () => {
+    if (gameId && isPlayer1) {
+      await db.collection("matchmaking").doc(gameId).delete();
+    }
+    if (unsubscribe) unsubscribe();
+    window.location.href = "./index.html";
+  });
+
+  // Lancer le matchmaking au chargement
+  findMatch();
+
+  // ==== Config Phaser ====
+  var config = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 600,
+    physics: { default: 'arcade', arcade: { gravity:{y:300}, debug:false } },
+    scene: { preload, create, update }
+  };
+  var game;
+
+  function initPhaser() {
+    game = new Phaser.Game(config);
+  }
 
   function preload(){
     this.load.image('sky','assets/sky.png');
     this.load.image('ground','assets/platform.png');
     this.load.image('star','assets/piece.png');
     this.load.image('bomb','assets/bombe.png');
-    const char = localStorage.getItem('selectedCharacter')||'1';
-    this.load.spritesheet('dude',`assets/personnageframe${char}.png`,{frameWidth:320, frameHeight:480});
+    this.load.image('vie','assets/vie1.png');
+    this.load.image('novie','assets/vie2.png');
+    const selectedChar = localStorage.getItem('selectedCharacter') || '1';
+    this.load.spritesheet('dude',`assets/personnageframe${selectedChar}.png`,{frameWidth:320, frameHeight:480});
   }
 
-  async function create(){
-    await joinRoom();
-
+  function create(){
     this.add.image(400,300,'sky');
+
+    // Vies du joueur (à gauche)
+    for(let i=0; i<3; i++) {
+      myLifeIcons.push(this.add.image(40+i*45, 40, 'vie').setScale(0.02));
+    }
+    this.add.text(16, 70, 'Vous', {fontSize:'20px', fill:'#fff', fontStyle: 'bold'});
+
+    // Vies de l'adversaire (à droite)
+    for(let i=0; i<3; i++) {
+      opponentLifeIcons.push(this.add.image(800-40-i*45, 40, 'vie').setScale(0.02));
+    }
+    this.add.text(800-100, 70, 'Adversaire', {fontSize:'20px', fill:'#fff', fontStyle: 'bold'});
+
     platforms = this.physics.add.staticGroup();
     platforms.create(400,568,'ground').setScale(2).refreshBody();
+    createPlatformsForLevel(currentLevel);
 
-    player = this.physics.add.sprite(playerNumber===1?100:700,450,'dude').setScale(0.125).setCollideWorldBounds(true).setBounce(0.2);
-    enemy = this.physics.add.sprite(playerNumber===1?700:100,450,'dude').setScale(0.125).setCollideWorldBounds(true).setBounce(0.2);
+    // Créer le joueur local
+    const startX = isPlayer1 ? 100 : 700;
+    player = this.physics.add.sprite(startX, 450, 'dude')
+      .setScale(0.125)
+      .setBounce(0.2)
+      .setCollideWorldBounds(true);
+    
+    // Créer le joueur distant
+    const otherStartX = isPlayer1 ? 700 : 100;
+    otherPlayer = this.physics.add.sprite(otherStartX, 450, 'dude')
+      .setScale(0.125)
+      .setBounce(0.2)
+      .setCollideWorldBounds(true)
+      .setTint(0xff6666);
 
-    this.anims.create({key:'left',frames:this.anims.generateFrameNumbers('dude',{start:0,end:3}),frameRate:10,repeat:-1});
-    this.anims.create({key:'turn',frames:[{key:'dude',frame:4}],frameRate:20});
-    this.anims.create({key:'right',frames:this.anims.generateFrameNumbers('dude',{start:5,end:8}),frameRate:10,repeat:-1});
+    this.anims.create({key:'left', frames:this.anims.generateFrameNumbers('dude',{start:0,end:3}), frameRate:10, repeat:-1});
+    this.anims.create({key:'turn', frames:[{key:'dude',frame:4}], frameRate:20});
+    this.anims.create({key:'right', frames:this.anims.generateFrameNumbers('dude',{start:5,end:8}), frameRate:10, repeat:-1});
 
     cursors = this.input.keyboard.createCursorKeys();
 
-    stars = this.physics.add.group();
+    stars = this.physics.add.group({key:'star', repeat:11, setXY:{x:12,y:0,stepX:70}});
+    stars.children.iterate(c => { c.setBounceY(Phaser.Math.FloatBetween(0.4,0.8)); c.setScale(0.015); });
+
     bombs = this.physics.add.group();
 
-    this.physics.add.collider(player,platforms);
-    this.physics.add.collider(enemy,platforms);
-    this.physics.add.collider(stars,platforms);
-    this.physics.add.collider(bombs,platforms);
-    this.physics.add.overlap(player,stars,collectStar,null,this);
-    this.physics.add.collider(player,bombs,hitBomb,null,this);
-
-    // ======== Synchronisation ========
-    db.collection("players").doc(deviceId).onSnapshot(doc=>{
-      if(doc.exists){
-        const data = doc.data();
-        player.x = data.x; player.y = data.y; myLives = data.lives;
-        updateLives();
-      }
-    });
-
-    db.collection("players").where("room","==",roomId).onSnapshot(snapshot=>{
-      snapshot.docs.forEach(d=>{
-        if(d.id!==deviceId){
-          const data = d.data();
-          enemy.x = data.x; enemy.y = data.y; enemyLives = data.lives;
-          updateLives();
-        }
-      });
-    });
+    this.physics.add.collider(player, platforms);
+    this.physics.add.collider(otherPlayer, platforms);
+    this.physics.add.collider(stars, platforms);
+    this.physics.add.collider(bombs, platforms);
+    this.physics.add.overlap(player, stars, collectStar, null, this);
+    this.physics.add.collider(player, bombs, hitBomb, null, this);
+    this.physics.add.collider(otherPlayer, bombs, () => {}, null, this);
   }
 
   function update(){
     if(gameOver) return;
+    
+    // Contrôles du joueur local
+    if(cursors.left.isDown){ 
+      player.setVelocityX(-160); 
+      player.anims.play('left',true);
+    }
+    else if(cursors.right.isDown){ 
+      player.setVelocityX(160); 
+      player.anims.play('right',true);
+    }
+    else { 
+      player.setVelocityX(0); 
+      player.anims.play('turn'); 
+    }
+    
+    if(cursors.up.isDown && player.body.touching.down) {
+      player.setVelocityY(-330);
+    }
 
-    let vx=0;
-    if(cursors.left.isDown){ vx=-160; player.anims.play('left',true); }
-    else if(cursors.right.isDown){ vx=160; player.anims.play('right',true); }
-    else{ vx=0; player.anims.play('turn'); }
-
-    if(cursors.up.isDown && player.body.touching.down){ player.setVelocityY(-330); }
-
-    player.setVelocityX(vx);
-
-    // Envoie la position à Firebase
-    db.collection("players").doc(deviceId).update({x:player.x,y:player.y,lives:myLives});
+    // Mettre à jour la position dans Firebase
+    if (gameRef && player) {
+      const playerKey = isPlayer1 ? 'player1' : 'player2';
+      gameRef.update({
+        [`${playerKey}X`]: player.x,
+        [`${playerKey}Y`]: player.y
+      });
+    }
   }
 
-  function collectStar(playerObj, star){
+  function collectStar(player, star){
+    const starIndex = stars.children.entries.indexOf(star);
     star.disableBody(true,true);
-    // Si host, supprimer l'étoile dans Firebase
-    // TODO: gérer host pour synchronisation complète
+    
+    // Mettre à jour les étoiles dans Firebase
+    gameRef.get().then(doc => {
+      const data = doc.data();
+      const newStars = [...data.stars];
+      newStars[starIndex] = false;
+      
+      const activeStars = newStars.filter(s => s).length;
+      
+      if(activeStars === 0) {
+        // Niveau terminé
+        const newLevel = (data.currentLevel + 1) % platformLayouts.length;
+        
+        // Créer une nouvelle bombe
+        const x = (player.x < 400) ? Phaser.Math.Between(400, 800) : Phaser.Math.Between(0, 400);
+        const newBombs = [...data.bombs, {x, y: 16, vx: Phaser.Math.Between(-200, 200)}];
+        
+        gameRef.update({
+          stars: Array(12).fill(true),
+          currentLevel: newLevel,
+          bombs: newBombs
+        });
+      } else {
+        gameRef.update({ stars: newStars });
+      }
+    });
   }
 
-  function hitBomb(playerObj, bomb){
-    bomb.disableBody(true,true);
-    myLives--;
-    if(myLives<=0){ gameOver=true; alert("Vous avez perdu !"); }
-    db.collection("players").doc(deviceId).update({lives:myLives});
+  function hitBomb(player, bomb){
+    const playerKey = isPlayer1 ? 'player1Lives' : 'player2Lives';
+    
+    gameRef.get().then(doc => {
+      const data = doc.data();
+      const newLives = data[playerKey] - 1;
+      
+      const update = {};
+      update[playerKey] = newLives;
+      
+      if (newLives <= 0) {
+        update.gameOver = true;
+        update.winner = isPlayer1 ? 'player2' : 'player1';
+      }
+      
+      gameRef.update(update);
+    });
+    
+    bomb.disableBody(true, true);
   }
 
-  function updateLives(){
-    document.getElementById("myLives").innerHTML="";
-    document.getElementById("enemyLives").innerHTML="";
-    for(let i=0;i<myLives;i++){
-      const img=document.createElement("img"); img.src="assets/vie1.png"; img.className="life"; document.getElementById("myLives").appendChild(img);
+  function updateGameState(data) {
+    // Mettre à jour les vies
+    updateLives(data.player1Lives, data.player2Lives);
+    
+    // Mettre à jour la position de l'autre joueur
+    if (otherPlayer) {
+      const otherX = isPlayer1 ? data.player2X : data.player1X;
+      const otherY = isPlayer1 ? data.player2Y : data.player1Y;
+      if (otherX && otherY) {
+        otherPlayer.setPosition(otherX, otherY);
+      }
     }
-    for(let i=0;i<enemyLives;i++){
-      const img=document.createElement("img"); img.src="assets/vie1.png"; img.className="life"; document.getElementById("enemyLives").appendChild(img);
+    
+    // Mettre à jour les étoiles
+    if (stars) {
+      stars.children.entries.forEach((star, i) => {
+        if (data.stars[i]) {
+          star.enableBody(true, star.x, star.y, true, true);
+        } else {
+          star.disableBody(true, true);
+        }
+      });
+    }
+    
+    // Mettre à jour les bombes
+    if (bombs && data.bombs) {
+      // Supprimer les anciennes bombes
+      bombs.clear(true, true);
+      
+      // Créer les nouvelles bombes
+      data.bombs.forEach(b => {
+        const bomb = bombs.create(b.x, b.y, 'bomb').setScale(0.015);
+        bomb.body.setSize(bomb.width*0.015, bomb.height*0.015);
+        bomb.setBounce(1).setCollideWorldBounds(true).setVelocity(b.vx, 20);
+      });
+    }
+    
+    // Mettre à jour le niveau
+    if (data.currentLevel !== currentLevel) {
+      currentLevel = data.currentLevel;
+      createPlatformsForLevel(currentLevel);
+    }
+    
+    // Vérifier la fin de partie
+    if (data.gameOver && !gameOver) {
+      gameOver = true;
+      endGame(data.winner);
     }
   }
+
+  function updateLives(p1Lives, p2Lives) {
+    const myLivesCount = isPlayer1 ? p1Lives : p2Lives;
+    const opponentLivesCount = isPlayer1 ? p2Lives : p1Lives;
+    
+    // Mettre à jour mes vies
+    for (let i = 0; i < 3; i++) {
+      if (i < myLivesCount) {
+        myLifeIcons[i].setTexture('vie');
+      } else {
+        myLifeIcons[i].setTexture('novie');
+      }
+    }
+    
+    // Mettre à jour les vies de l'adversaire
+    for (let i = 0; i < 3; i++) {
+      if (i < opponentLivesCount) {
+        opponentLifeIcons[i].setTexture('vie');
+      } else {
+        opponentLifeIcons[i].setTexture('novie');
+      }
+    }
+    
+    myLives = myLivesCount;
+    opponentLives = opponentLivesCount;
+  }
+
+  function endGame(winner) {
+    if (game && game.scene.scenes[0]) {
+      game.scene.scenes[0].physics.pause();
+    }
+    
+    const modal = document.getElementById("gameover-modal");
+    const title = document.getElementById("result-title");
+    const message = document.getElementById("result-message");
+    
+    const iWon = (isPlayer1 && winner === 'player1') || (!isPlayer1 && winner === 'player2');
+    
+    if (iWon) {
+      title.textContent = "🎉 VICTOIRE ! 🎉";
+      title.className = "victory";
+      message.textContent = "Vous avez vaincu votre adversaire !";
+    } else {
+      title.textContent = "💀 DÉFAITE 💀";
+      title.className = "defeat";
+      message.textContent = "Votre adversaire a gagné...";
+    }
+    
+    modal.style.display = "flex";
+    
+    // Nettoyer Firebase
+    if (unsubscribe) unsubscribe();
+  }
+
+  function createPlatformsForLevel(level){
+    platformsArray.forEach(p=>p.destroy());
+    platformsArray=[];
+    platformLayouts[level].forEach(pos=>platformsArray.push(platforms.create(pos.x,pos.y,'ground')));
+  }
+
+  // Nettoyage à la fermeture
+  window.addEventListener('beforeunload', () => {
+    if (unsubscribe) unsubscribe();
+    if (gameId && isPlayer1) {
+      db.collection("matchmaking").doc(gameId).delete().catch(() => {});
+    }
+  });
 
 </script>
 </body>
