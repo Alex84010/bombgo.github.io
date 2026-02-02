@@ -193,6 +193,8 @@
   var gameOver = false;
   var currentLevel = 0;
   var platformsArray = [];
+  var myNameText, opponentNameText;
+  var myCharacter, opponentCharacter;
   
   // Variables multijoueur
   var gameId = null;
@@ -213,6 +215,7 @@
   // ==== Matchmaking ====
   async function findMatch() {
     const matchmakingRef = db.collection("matchmaking");
+    const selectedChar = localStorage.getItem('selectedCharacter') || '1';
     
     // Chercher une partie en attente
     const snapshot = await matchmakingRef.where("status", "==", "waiting").limit(1).get();
@@ -226,6 +229,7 @@
       await matchmakingRef.doc(gameId).update({
         player2: playerId,
         player2Name: playerNickname,
+        player2Character: selectedChar,
         status: "playing"
       });
       
@@ -235,8 +239,10 @@
       const newGame = await matchmakingRef.add({
         player1: playerId,
         player1Name: playerNickname,
+        player1Character: selectedChar,
         player2: null,
         player2Name: null,
+        player2Character: null,
         status: "waiting",
         created: firebase.firestore.FieldValue.serverTimestamp()
       });
@@ -264,36 +270,47 @@
   function startGame() {
     document.getElementById("matchmaking-modal").style.display = "none";
     
-    // Initialiser la référence du jeu
-    gameRef = db.collection("games").doc(gameId);
-    
-    // Initialiser l'état du jeu
-    if (isPlayer1) {
-      gameRef.set({
-        player1Lives: 3,
-        player2Lives: 3,
-        player1X: 100,
-        player1Y: 450,
-        player2X: 700,
-        player2Y: 450,
-        currentLevel: 0,
-        stars: Array(12).fill(true),
-        bombs: [],
-        gameOver: false,
-        winner: null
-      });
-    }
-    
-    // Écouter les changements
-    unsubscribe = gameRef.onSnapshot(doc => {
+    // Récupérer les infos des joueurs
+    db.collection("matchmaking").doc(gameId).get().then(doc => {
       const data = doc.data();
-      if (data) {
-        updateGameState(data);
+      myCharacter = isPlayer1 ? data.player1Character : data.player2Character;
+      opponentCharacter = isPlayer1 ? data.player2Character : data.player1Character;
+      
+      // Initialiser la référence du jeu
+      gameRef = db.collection("games").doc(gameId);
+      
+      // Initialiser l'état du jeu
+      if (isPlayer1) {
+        gameRef.set({
+          player1Lives: 3,
+          player2Lives: 3,
+          player1X: 100,
+          player1Y: 450,
+          player1VelX: 0,
+          player1Anim: 'turn',
+          player2X: 700,
+          player2Y: 450,
+          player2VelX: 0,
+          player2Anim: 'turn',
+          currentLevel: 0,
+          stars: Array(12).fill(true),
+          bombs: [],
+          gameOver: false,
+          winner: null
+        });
       }
+      
+      // Écouter les changements
+      unsubscribe = gameRef.onSnapshot(doc => {
+        const data = doc.data();
+        if (data) {
+          updateGameState(data);
+        }
+      });
+      
+      // Démarrer Phaser
+      initPhaser();
     });
-    
-    // Démarrer Phaser
-    initPhaser();
   }
 
   // Annuler le matchmaking
@@ -329,8 +346,15 @@
     this.load.image('bomb','assets/bombe.png');
     this.load.image('vie','assets/vie1.png');
     this.load.image('novie','assets/vie2.png');
+    
+    // Charger le skin du joueur local
     const selectedChar = localStorage.getItem('selectedCharacter') || '1';
     this.load.spritesheet('dude',`assets/personnageframe${selectedChar}.png`,{frameWidth:320, frameHeight:480});
+    
+    // Charger potentiellement d'autres skins pour l'adversaire (on chargera tous les skins possibles)
+    for(let i = 1; i <= 8; i++) {
+      this.load.spritesheet(`dude${i}`,`assets/personnageframe${i}.png`,{frameWidth:320, frameHeight:480});
+    }
   }
 
   function create(){
@@ -352,24 +376,53 @@
     platforms.create(400,568,'ground').setScale(2).refreshBody();
     createPlatformsForLevel(currentLevel);
 
-    // Créer le joueur local
+    // Créer le joueur local avec son skin
     const startX = isPlayer1 ? 100 : 700;
     player = this.physics.add.sprite(startX, 450, 'dude')
       .setScale(0.125)
       .setBounce(0.2)
       .setCollideWorldBounds(true);
     
-    // Créer le joueur distant
+    // Texte du pseudo du joueur local
+    myNameText = this.add.text(0, 0, playerNickname, {
+      fontSize: '16px',
+      fill: '#fff',
+      backgroundColor: '#000000aa',
+      padding: { x: 5, y: 2 }
+    }).setOrigin(0.5, 1);
+    
+    // Créer le joueur distant avec son skin
     const otherStartX = isPlayer1 ? 700 : 100;
-    otherPlayer = this.physics.add.sprite(otherStartX, 450, 'dude')
+    const otherSkin = `dude${opponentCharacter}`;
+    otherPlayer = this.physics.add.sprite(otherStartX, 450, otherSkin)
       .setScale(0.125)
       .setBounce(0.2)
-      .setCollideWorldBounds(true)
-      .setTint(0xff6666);
+      .setCollideWorldBounds(true);
+    
+    // Récupérer le pseudo de l'adversaire
+    db.collection("matchmaking").doc(gameId).get().then(doc => {
+      const data = doc.data();
+      const opponentName = isPlayer1 ? data.player2Name : data.player1Name;
+      
+      // Texte du pseudo de l'adversaire
+      opponentNameText = this.add.text(0, 0, opponentName, {
+        fontSize: '16px',
+        fill: '#fff',
+        backgroundColor: '#000000aa',
+        padding: { x: 5, y: 2 }
+      }).setOrigin(0.5, 1);
+    });
 
+    // Créer les animations pour le joueur local
     this.anims.create({key:'left', frames:this.anims.generateFrameNumbers('dude',{start:0,end:3}), frameRate:10, repeat:-1});
     this.anims.create({key:'turn', frames:[{key:'dude',frame:4}], frameRate:20});
     this.anims.create({key:'right', frames:this.anims.generateFrameNumbers('dude',{start:5,end:8}), frameRate:10, repeat:-1});
+
+    // Créer les animations pour l'adversaire
+    const otherSkin = `dude${opponentCharacter}`;
+    this.anims.create({key:'other-left', frames:this.anims.generateFrameNumbers(otherSkin,{start:0,end:3}), frameRate:10, repeat:-1});
+    this.anims.create({key:'other-turn', frames:[{key:otherSkin,frame:4}], frameRate:20});
+    this.anims.create({key:'other-right', frames:this.anims.generateFrameNumbers(otherSkin,{start:5,end:8}), frameRate:10, repeat:-1});
 
     cursors = this.input.keyboard.createCursorKeys();
 
@@ -390,30 +443,47 @@
   function update(){
     if(gameOver) return;
     
+    let currentAnim = 'turn';
+    
     // Contrôles du joueur local
     if(cursors.left.isDown){ 
       player.setVelocityX(-160); 
       player.anims.play('left',true);
+      currentAnim = 'left';
     }
     else if(cursors.right.isDown){ 
       player.setVelocityX(160); 
       player.anims.play('right',true);
+      currentAnim = 'right';
     }
     else { 
       player.setVelocityX(0); 
       player.anims.play('turn'); 
+      currentAnim = 'turn';
     }
     
     if(cursors.up.isDown && player.body.touching.down) {
       player.setVelocityY(-330);
     }
 
-    // Mettre à jour la position dans Firebase
+    // Mettre à jour la position du pseudo du joueur
+    if (myNameText && player) {
+      myNameText.setPosition(player.x, player.y - 40);
+    }
+    
+    // Mettre à jour la position du pseudo de l'adversaire
+    if (opponentNameText && otherPlayer) {
+      opponentNameText.setPosition(otherPlayer.x, otherPlayer.y - 40);
+    }
+
+    // Mettre à jour la position et l'animation dans Firebase
     if (gameRef && player) {
       const playerKey = isPlayer1 ? 'player1' : 'player2';
       gameRef.update({
         [`${playerKey}X`]: player.x,
-        [`${playerKey}Y`]: player.y
+        [`${playerKey}Y`]: player.y,
+        [`${playerKey}VelX`]: player.body.velocity.x,
+        [`${playerKey}Anim`]: currentAnim
       });
     }
   }
@@ -474,12 +544,23 @@
     // Mettre à jour les vies
     updateLives(data.player1Lives, data.player2Lives);
     
-    // Mettre à jour la position de l'autre joueur
+    // Mettre à jour la position et l'animation de l'autre joueur
     if (otherPlayer) {
       const otherX = isPlayer1 ? data.player2X : data.player1X;
       const otherY = isPlayer1 ? data.player2Y : data.player1Y;
+      const otherAnim = isPlayer1 ? data.player2Anim : data.player1Anim;
+      
       if (otherX && otherY) {
         otherPlayer.setPosition(otherX, otherY);
+        
+        // Appliquer l'animation de l'adversaire
+        if (otherAnim === 'left') {
+          otherPlayer.anims.play('other-left', true);
+        } else if (otherAnim === 'right') {
+          otherPlayer.anims.play('other-right', true);
+        } else {
+          otherPlayer.anims.play('other-turn', true);
+        }
       }
     }
     
@@ -581,12 +662,4 @@
 
   // Nettoyage à la fermeture
   window.addEventListener('beforeunload', () => {
-    if (unsubscribe) unsubscribe();
-    if (gameId && isPlayer1) {
-      db.collection("matchmaking").doc(gameId).delete().catch(() => {});
-    }
-  });
-
-</script>
-</body>
-</html>
+    if (unsubscr
