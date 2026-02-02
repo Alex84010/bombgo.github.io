@@ -207,10 +207,11 @@
   var unsubscribe = null;
   var matchmakingUnsubscribe = null;
 
-  // ✅ OPTIMISATION: Throttle pour les mises à jour Firebase
+  // ✅ OPTIMISATION: Throttle pour Firebase
   var lastPositionUpdate = 0;
-  var UPDATE_INTERVAL = 50; // Mise à jour toutes les 50ms (20 fois/sec au lieu de 60)
+  var UPDATE_INTERVAL = 50; // 20 mises à jour par seconde au lieu de 60
   var isUpdatingFirebase = false;
+  var lastGameState = {}; // Cache pour éviter les mises à jour inutiles
 
   // ==== Layout des niveaux ====
   var platformLayouts = [
@@ -274,15 +275,14 @@
             setTimeout(() => startGame(), 500);
             return;
           } catch (error) {
-            console.error('Erreur lors de la jointure:', error);
-            return findMatch();
+            console.warn('❌ Impossible de rejoindre cette partie, création d\'une nouvelle...');
           }
         }
       }
       
-      // Pas de partie trouvée, créer une nouvelle partie
-      console.log('📝 Création d\'une nouvelle partie...');
-      const newGameRef = await matchmakingRef.add({
+      // Créer une nouvelle partie
+      console.log('🆕 Création d\'une nouvelle partie...');
+      const newGame = await matchmakingRef.add({
         player1: playerId,
         player1Name: playerNickname,
         player1Character: selectedChar,
@@ -293,40 +293,118 @@
         created: firebase.firestore.FieldValue.serverTimestamp()
       });
       
-      gameId = newGameRef.id;
+      gameId = newGame.id;
       isPlayer1 = true;
       
-      console.log('⏳ En attente d\'un adversaire...');
+      console.log('⏳ En attente du Player 2...');
       updateMatchmakingStatus('En attente d\'un adversaire...');
       
-      // Attendre qu'un joueur 2 rejoigne
-      matchmakingUnsubscribe = newGameRef.onSnapshot(snapshot => {
-        const data = snapshot.data();
-        if (data && data.status === "playing" && data.player2) {
-          console.log('✅ Adversaire trouvé!');
-          updateMatchmakingStatus('Adversaire trouvé ! Démarrage...');
-          if (matchmakingUnsubscribe) {
-            matchmakingUnsubscribe();
-            matchmakingUnsubscribe = null;
-          }
-          setTimeout(() => startGame(), 500);
-        }
-      });
+      waitForOpponent();
       
     } catch (error) {
       console.error('❌ Erreur matchmaking:', error);
-      updateMatchmakingStatus('Erreur de connexion. Nouvelle tentative...');
-      setTimeout(() => findMatch(), 2000);
+      updateMatchmakingStatus('Erreur de connexion. Réessayez.');
     }
   }
 
-  function updateMatchmakingStatus(text) {
-    const statusEl = document.getElementById('matchmaking-status');
-    if (statusEl) statusEl.textContent = text;
+  function waitForOpponent() {
+    const matchmakingRef = db.collection("matchmaking").doc(gameId);
+    
+    matchmakingUnsubscribe = matchmakingRef.onSnapshot(doc => {
+      if (!doc.exists) {
+        console.warn('⚠️ Document de matchmaking supprimé');
+        return;
+      }
+      
+      const data = doc.data();
+      
+      if (data && data.status === "playing" && data.player2) {
+        console.log('🎮 Player 2 a rejoint! Démarrage...');
+        if (matchmakingUnsubscribe) {
+          matchmakingUnsubscribe();
+          matchmakingUnsubscribe = null;
+        }
+        updateMatchmakingStatus('Adversaire trouvé ! Démarrage...');
+        setTimeout(() => startGame(), 500);
+      }
+    }, error => {
+      console.error('❌ Erreur snapshot matchmaking:', error);
+    });
   }
 
-  function cancelMatchmaking() {
-    console.log('❌ Annulation du matchmaking');
+  function updateMatchmakingStatus(message) {
+    const statusElement = document.getElementById("matchmaking-status");
+    if (statusElement) {
+      statusElement.textContent = message;
+    }
+  }
+
+  function startGame() {
+    console.log('🚀 Démarrage du jeu...');
+    
+    db.collection("matchmaking").doc(gameId).get().then(doc => {
+      if (!doc.exists) {
+        console.error('❌ Document de matchmaking introuvable');
+        return;
+      }
+      
+      const data = doc.data();
+      myCharacter = isPlayer1 ? data.player1Character : data.player2Character;
+      opponentCharacter = isPlayer1 ? data.player2Character : data.player1Character;
+      
+      console.log(`👤 Mon personnage: ${myCharacter}, Adversaire: ${opponentCharacter}`);
+      
+      gameRef = db.collection("games").doc(gameId);
+      
+      if (isPlayer1) {
+        console.log('📝 Initialisation de l\'état du jeu (Player 1)');
+        gameRef.set({
+          player1Lives: 3,
+          player2Lives: 3,
+          player1X: 100,
+          player1Y: 450,
+          player1VelX: 0,
+          player1Anim: 'turn',
+          player2X: 700,
+          player2Y: 450,
+          player2VelX: 0,
+          player2Anim: 'turn',
+          currentLevel: 0,
+          stars: Array(12).fill(true),
+          bombs: [],
+          gameOver: false,
+          winner: null,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        }).catch(error => {
+          console.error('❌ Erreur initialisation état:', error);
+        });
+      }
+      
+      console.log('👂 Configuration de l\'écoute des changements...');
+      unsubscribe = gameRef.onSnapshot(doc => {
+        if (!doc.exists) {
+          return;
+        }
+        
+        const data = doc.data();
+        if (data) {
+          updateGameState(data);
+        }
+      }, error => {
+        console.error('❌ Erreur snapshot jeu:', error);
+      });
+      
+      document.getElementById("matchmaking-modal").style.display = "none";
+      initPhaser();
+      
+    }).catch(error => {
+      console.error('❌ Erreur récupération données:', error);
+    });
+  }
+
+  // Annuler le matchmaking
+  document.getElementById("cancel-btn").addEventListener("click", async () => {
+    console.log('🚫 Annulation du matchmaking...');
     
     if (matchmakingUnsubscribe) {
       matchmakingUnsubscribe();
@@ -334,191 +412,116 @@
     }
     
     if (gameId && isPlayer1) {
-      db.collection("matchmaking").doc(gameId).delete().catch(() => {});
-    }
-    
-    window.location.href = './index.html';
-  }
-
-  document.getElementById('cancel-btn').addEventListener('click', cancelMatchmaking);
-
-  // ==== Démarrage du jeu ====
-  function startGame() {
-    console.log('🎮 Démarrage du jeu...');
-    document.getElementById('matchmaking-modal').style.display = 'none';
-    
-    gameRef = db.collection("matchmaking").doc(gameId);
-    
-    if (isPlayer1) {
-      myCharacter = localStorage.getItem('selectedCharacter') || '1';
-      gameRef.get().then(doc => {
-        const data = doc.data();
-        opponentCharacter = data.player2Character || '1';
-        initializeGame();
-      });
-    } else {
-      gameRef.get().then(doc => {
-        const data = doc.data();
-        myCharacter = data.player2Character || '1';
-        opponentCharacter = data.player1Character || '1';
-        initializeGame();
-      });
-    }
-  }
-
-  function initializeGame() {
-    if (isPlayer1) {
-      gameRef.set({
-        player1: playerId,
-        player1Name: playerNickname,
-        player1Character: myCharacter,
-        player1Lives: 3,
-        player1X: 100,
-        player1Y: 450,
-        player1VelX: 0,
-        player1Anim: 'turn',
-        player2Character: opponentCharacter,
-        player2Lives: 3,
-        player2X: 700,
-        player2Y: 450,
-        player2VelX: 0,
-        player2Anim: 'turn',
-        currentLevel: 0,
-        stars: Array(12).fill(true),
-        bombs: [],
-        gameOver: false,
-        winner: null,
-        status: "playing"
-      }, { merge: true }).then(() => {
-        console.log('✅ État du jeu initialisé');
-        setupGameListener();
-        launchPhaserGame();
-      });
-    } else {
-      setupGameListener();
-      launchPhaserGame();
-    }
-  }
-
-  function setupGameListener() {
-    unsubscribe = gameRef.onSnapshot(snapshot => {
-      const data = snapshot.data();
-      if (data && game && game.scene.scenes[0]) {
-        updateGameState(data);
+      try {
+        await db.collection("matchmaking").doc(gameId).delete();
+      } catch (error) {
+        console.error('Erreur suppression:', error);
       }
-    });
-  }
+    }
+    
+    if (unsubscribe) {
+      unsubscribe();
+      unsubscribe = null;
+    }
+    
+    window.location.href = "./index.html";
+  });
 
-  // ==== Phaser ====
+  findMatch();
+
+  // ==== Config Phaser ====
+  var config = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 600,
+    physics: { default: 'arcade', arcade: { gravity:{y:300}, debug:false } },
+    scene: { preload, create, update }
+  };
   var game;
 
-  function launchPhaserGame() {
-    const config = {
-      type: Phaser.AUTO,
-      width: 800,
-      height: 600,
-      parent: 'game-wrapper',
-      physics: { default:'arcade', arcade:{gravity:{y:300}, debug:false} },
-      scene: { preload, create, update }
-    };
+  function initPhaser() {
     game = new Phaser.Game(config);
   }
 
   function preload(){
-    this.load.image('sky', 'assets/sky.png');
-    this.load.image('ground', 'assets/platform.png');
-    this.load.image('star', 'assets/star.png');
-    this.load.image('bomb', 'assets/bomb.png');
-    this.load.image('vie', 'assets/vie.png');
-    this.load.image('novie', 'assets/novie.png');
-
-    for(let i=1;i<=6;i++){
-      this.load.spritesheet(`dude${i}`, `assets/dude${i}.png`, {frameWidth:32,frameHeight:48});
+    this.load.image('sky','assets/sky.png');
+    this.load.image('ground','assets/platform.png');
+    this.load.image('star','assets/piece.png');
+    this.load.image('bomb','assets/bombe.png');
+    this.load.image('vie','assets/vie1.png');
+    this.load.image('novie','assets/vie2.png');
+    
+    for(let i = 1; i <= 8; i++) {
+      this.load.spritesheet(`dude${i}`,`assets/personnageframe${i}.png`,{frameWidth:320, frameHeight:480});
     }
   }
 
   function create(){
     this.add.image(400,300,'sky');
 
+    // Vies du joueur (à gauche)
+    for(let i=0; i<3; i++) {
+      myLifeIcons.push(this.add.image(40+i*45, 40, 'vie').setScale(0.02));
+    }
+
+    // Vies de l'adversaire (à droite)
+    for(let i=0; i<3; i++) {
+      opponentLifeIcons.push(this.add.image(800-40-i*45, 40, 'vie').setScale(0.02));
+    }
+
     platforms = this.physics.add.staticGroup();
     platforms.create(400,568,'ground').setScale(2).refreshBody();
+    createPlatformsForLevel(currentLevel);
 
-    const mySkin = 'dude' + myCharacter;
-    const otherSkin = 'dude' + opponentCharacter;
-
-    const myInitX = isPlayer1 ? 100 : 700;
-    const otherInitX = isPlayer1 ? 700 : 100;
-
-    player = this.physics.add.sprite(myInitX, 450, mySkin);
-    player.setBounce(0.2);
-    player.setCollideWorldBounds(true);
-
-    myNameText = this.add.text(player.x, player.y - 40, playerNickname, {
+    const startX = isPlayer1 ? 100 : 700;
+    const mySkin = `dude${myCharacter}`;
+    player = this.physics.add.sprite(startX, 450, mySkin)
+      .setScale(0.125)
+      .setBounce(0.2)
+      .setCollideWorldBounds(true);
+    
+    myNameText = this.add.text(0, 0, playerNickname, {
       fontSize: '16px',
       fill: '#fff',
-      backgroundColor: '#000',
-      padding: { x: 6, y: 4 }
+      backgroundColor: '#000000aa',
+      padding: { x: 5, y: 2 }
     }).setOrigin(0.5, 1);
-
-    otherPlayer = this.physics.add.sprite(otherInitX, 450, otherSkin);
-    otherPlayer.setBounce(0.2);
-    otherPlayer.setCollideWorldBounds(true);
-
-    gameRef.get().then(doc => {
+    
+    const otherStartX = isPlayer1 ? 700 : 100;
+    const otherSkin = `dude${opponentCharacter}`;
+    otherPlayer = this.physics.add.sprite(otherStartX, 450, otherSkin)
+      .setScale(0.125)
+      .setBounce(0.2)
+      .setCollideWorldBounds(true);
+    
+    db.collection("matchmaking").doc(gameId).get().then(doc => {
       const data = doc.data();
-      const opponentName = isPlayer1 ? (data.player2Name || 'Adversaire') : (data.player1Name || 'Adversaire');
+      const opponentName = isPlayer1 ? data.player2Name : data.player1Name;
       
-      opponentNameText = this.add.text(otherPlayer.x, otherPlayer.y - 40, opponentName, {
+      opponentNameText = this.add.text(0, 0, opponentName || "Adversaire", {
         fontSize: '16px',
         fill: '#fff',
-        backgroundColor: '#000',
-        padding: { x: 6, y: 4 }
+        backgroundColor: '#000000aa',
+        padding: { x: 5, y: 2 }
       }).setOrigin(0.5, 1);
     });
 
-    for(let i=0; i<3; i++){
-      myLifeIcons.push(this.add.image(30+i*40, 30, 'vie').setScale(0.015));
-      opponentLifeIcons.push(this.add.image(770-i*40, 30, 'vie').setScale(0.015));
-    }
+    this.anims.create({key:'left', frames:this.anims.generateFrameNumbers(mySkin,{start:0,end:3}), frameRate:10, repeat:-1});
+    this.anims.create({key:'turn', frames:[{key:mySkin,frame:4}], frameRate:20});
+    this.anims.create({key:'right', frames:this.anims.generateFrameNumbers(mySkin,{start:5,end:8}), frameRate:10, repeat:-1});
 
-    createPlatformsForLevel(0);
-
-    [
-      {skin:mySkin, prefix:''},
-      {skin:otherSkin, prefix:'other-'}
-    ].forEach(({skin, prefix}) => {
-      this.anims.create({
-        key: prefix+'left',
-        frames: this.anims.generateFrameNumbers(skin, {start:0, end:3}),
-        frameRate: 10,
-        repeat: -1
-      });
-      this.anims.create({
-        key: prefix+'turn',
-        frames: [{key:skin, frame:4}],
-        frameRate: 20
-      });
-      this.anims.create({
-        key: prefix+'right',
-        frames: this.anims.generateFrameNumbers(skin, {start:5, end:8}),
-        frameRate: 10,
-        repeat: -1
-      });
-    });
+    this.anims.create({key:'other-left', frames:this.anims.generateFrameNumbers(otherSkin,{start:0,end:3}), frameRate:10, repeat:-1});
+    this.anims.create({key:'other-turn', frames:[{key:otherSkin,frame:4}], frameRate:20});
+    this.anims.create({key:'other-right', frames:this.anims.generateFrameNumbers(otherSkin,{start:5,end:8}), frameRate:10, repeat:-1});
 
     cursors = this.input.keyboard.createCursorKeys();
 
-    // ✅ OPTIMISATION: Créer les étoiles une seule fois
-    stars = this.physics.add.group({
-      key:'star', 
-      repeat:11, 
-      setXY:{x:12, y:0, stepX:70}
-    });
-    
+    // ✅ Pièces - gravité définie une seule fois
+    stars = this.physics.add.group({key:'star', repeat:11, setXY:{x:12,y:0,stepX:70}});
     stars.children.iterate(c => { 
-      c.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8)); 
+      c.setBounceY(Phaser.Math.FloatBetween(0.4,0.8)); 
       c.setScale(0.015);
-      c.body.setGravityY(200); // Gravité définie UNE SEULE FOIS
+      c.body.setGravityY(200);
     });
 
     bombs = this.physics.add.group();
@@ -638,24 +641,20 @@
     bomb.disableBody(true, true);
   }
 
-  // ✅ OPTIMISATION: Éviter les boucles infinies
-  var lastGameState = {};
-  
   function updateGameState(data) {
-    // Mettre à jour les vies
     updateLives(data.player1Lives, data.player2Lives);
     
-    // ✅ OPTIMISATION: Mise à jour de la position de l'adversaire (interpolation simple)
+    // ✅ OPTIMISATION: Position adversaireavec interpolation
     if (otherPlayer) {
       const otherX = isPlayer1 ? data.player2X : data.player1X;
       const otherY = isPlayer1 ? data.player2Y : data.player1Y;
       const otherAnim = isPlayer1 ? data.player2Anim : data.player1Anim;
       
       if (otherX !== undefined && otherY !== undefined) {
-        // Interpolation douce pour éviter les téléportations
         const distance = Phaser.Math.Distance.Between(otherPlayer.x, otherPlayer.y, otherX, otherY);
         
-        if (distance > 5) { // Seulement si le mouvement est significatif
+        // Seulement mettre à jour si mouvement significatif
+        if (distance > 3) {
           otherPlayer.setPosition(otherX, otherY);
         }
         
@@ -669,36 +668,12 @@
       }
     }
     
-    // ✅ OPTIMISATION: Mise à jour de la position de l'adversaire (interpolation simple)
-    if (otherPlayer) {
-      const otherX = isPlayer1 ? data.player2X : data.player1X;
-      const otherY = isPlayer1 ? data.player2Y : data.player1Y;
-      const otherAnim = isPlayer1 ? data.player2Anim : data.player1Anim;
-      
-      if (otherX !== undefined && otherY !== undefined) {
-        // Interpolation douce pour éviter les téléportations
-        const distance = Phaser.Math.Distance.Between(otherPlayer.x, otherPlayer.y, otherX, otherY);
-        
-        if (distance > 5) { // Seulement si le mouvement est significatif
-          otherPlayer.setPosition(otherX, otherY);
-        }
-        
-        if (otherAnim === 'left') {
-          otherPlayer.anims.play('other-left', true);
-        } else if (otherAnim === 'right') {
-          otherPlayer.anims.play('other-right', true);
-        } else {
-          otherPlayer.anims.play('other-turn', true);
-        }
-      }
-    }
-    
-    // ✅ OPTIMISATION: Mise à jour des étoiles seulement si changement
+    // ✅ OPTIMISATION: Étoiles - mise à jour seulement si changement
     if (stars && data.stars && JSON.stringify(data.stars) !== JSON.stringify(lastGameState.stars)) {
       stars.children.entries.forEach((star, i) => {
         if (data.stars[i] && !star.active) {
           star.enableBody(true, 12 + i * 70, 0, true, true);
-          // La gravité est déjà définie, pas besoin de la réappliquer
+          // Pas besoin de remettre la gravité, elle est déjà définie
         } else if (!data.stars[i] && star.active) {
           star.disableBody(true, true);
         }
@@ -706,28 +681,42 @@
       lastGameState.stars = [...data.stars];
     }
     
-    // ✅ OPTIMISATION: Mise à jour des bombes seulement si changement
-    if (bombs && data.bombs && JSON.stringify(data.bombs) !== JSON.stringify(lastGameState.bombs)) {
-      // Créer un Map des bombes actuelles par position
-      const currentBombs = new Map();
-      bombs.children.entries.forEach(bomb => {
-        const key = `${Math.round(bomb.x)}_${Math.round(bomb.y)}`;
-        currentBombs.set(key, bomb);
-      });
+    // ✅ OPTIMISATION: Bombes - comparaison intelligente
+    if (bombs && data.bombs) {
+      const bombsChanged = JSON.stringify(data.bombs) !== JSON.stringify(lastGameState.bombs);
       
-      // Ajouter les nouvelles bombes
-      data.bombs.forEach(b => {
-        const key = `${Math.round(b.x)}_${Math.round(b.y)}`;
-        if (!currentBombs.has(key)) {
-          const bomb = bombs.create(b.x, b.y, 'bomb');
-          bomb.setScale(0.015);
-          bomb.setBounce(1);
-          bomb.setCollideWorldBounds(true);
-          bomb.setVelocity(b.vx, 20);
-        }
-      });
-      
-      lastGameState.bombs = JSON.parse(JSON.stringify(data.bombs));
+      if (bombsChanged) {
+        // Créer un Set des positions actuelles
+        const currentBombPositions = new Set(
+          bombs.children.entries.map(b => `${Math.round(b.x)}_${Math.round(b.y)}`)
+        );
+        
+        const newBombPositions = new Set(
+          data.bombs.map(b => `${Math.round(b.x)}_${Math.round(b.y)}`)
+        );
+        
+        // Supprimer les bombes qui n'existent plus
+        bombs.children.entries.forEach(bomb => {
+          const key = `${Math.round(bomb.x)}_${Math.round(bomb.y)}`;
+          if (!newBombPositions.has(key)) {
+            bomb.destroy();
+          }
+        });
+        
+        // Ajouter les nouvelles bombes
+        data.bombs.forEach(b => {
+          const key = `${Math.round(b.x)}_${Math.round(b.y)}`;
+          if (!currentBombPositions.has(key)) {
+            const bomb = bombs.create(b.x, b.y, 'bomb');
+            bomb.setScale(0.015);
+            bomb.setBounce(1);
+            bomb.setCollideWorldBounds(true);
+            bomb.setVelocity(b.vx, 20);
+          }
+        });
+        
+        lastGameState.bombs = JSON.parse(JSON.stringify(data.bombs));
+      }
     }
     
     // Mettre à jour le niveau
@@ -821,9 +810,6 @@
       db.collection("matchmaking").doc(gameId).delete().catch(() => {});
     }
   });
-
-  // Démarrer le matchmaking
-  findMatch();
 
 </script>
 </body>
