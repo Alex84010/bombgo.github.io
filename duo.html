@@ -136,21 +136,6 @@
     .btn-home:hover {
       background: #7f8c8d;
     }
-    
-    /* Debug info */
-    #debug-info {
-      position: fixed;
-      bottom: 10px;
-      left: 10px;
-      background: rgba(0,0,0,0.7);
-      color: #0f0;
-      padding: 10px;
-      font-family: monospace;
-      font-size: 12px;
-      max-width: 300px;
-      border-radius: 5px;
-      display: none;
-    }
   </style>
 </head>
 <body>
@@ -183,27 +168,8 @@
     </div>
   </div>
 
-  <!-- Debug info -->
-  <div id="debug-info"></div>
-
 <script>
-  // Activer le debug (mettre à false en production)
-  const DEBUG = true;
-  
-  function debugLog(message) {
-    if (DEBUG) {
-      console.log(`[DEBUG] ${message}`);
-      const debugDiv = document.getElementById('debug-info');
-      if (debugDiv) {
-        debugDiv.style.display = 'block';
-        debugDiv.innerHTML += `${new Date().toLocaleTimeString()}: ${message}<br>`;
-        debugDiv.scrollTop = debugDiv.scrollHeight;
-      }
-    }
-  }
-
   // ==== Firebase ====
-  debugLog('Initialisation Firebase...');
   firebase.initializeApp({
     apiKey: "AIzaSyA-LI-eVf069LVpkybZh1PBvDKgE_r-WKE",
     authDomain: "bombgo-duo.firebaseapp.com",
@@ -213,20 +179,15 @@
     appId: "1:145372656449:web:8c2df41a5911d76757a7c0"
   });
   const db = firebase.firestore();
-  debugLog('Firebase initialisé');
 
   // ==== Device ID ====
   let deviceId = localStorage.getItem("deviceId");
   if(!deviceId){ 
     deviceId = crypto.randomUUID(); 
     localStorage.setItem("deviceId", deviceId);
-    debugLog(`Nouveau deviceId créé: ${deviceId}`);
-  } else {
-    debugLog(`DeviceId existant: ${deviceId}`);
   }
 
   let playerNickname = localStorage.getItem("playerNickname") || "Joueur";
-  debugLog(`Pseudo: ${playerNickname}`);
 
   // ==== Variables globales ====
   var player, otherPlayer, cursors, stars, bombs, platforms;
@@ -255,116 +216,115 @@
     [{x:200,y:380},{x:40,y:140},{x:600,y:240},{x:350,y:100}]
   ];
 
-  // ==== Matchmaking ====
+  // ==== Matchmaking simplifié (SANS INDEX) ====
   async function findMatch() {
     try {
-      debugLog('Démarrage du matchmaking...');
+      console.log('🔍 Démarrage du matchmaking...');
       const matchmakingRef = db.collection("matchmaking");
       const selectedChar = localStorage.getItem('selectedCharacter') || '1';
-      debugLog(`Personnage sélectionné: ${selectedChar}`);
       
-      // Nettoyer les anciennes parties (plus de 5 minutes)
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      const oldGames = await matchmakingRef
-        .where("status", "==", "waiting")
-        .where("created", "<", fiveMinutesAgo)
-        .get();
-      
-      debugLog(`${oldGames.size} anciennes parties à nettoyer`);
-      oldGames.forEach(doc => {
-        doc.ref.delete();
-      });
-      
-      // Chercher une partie en attente
-      debugLog('Recherche d\'une partie en attente...');
+      // Chercher une partie en attente (requête simple, pas d'index requis)
       const snapshot = await matchmakingRef
         .where("status", "==", "waiting")
-        .orderBy("created", "asc")
-        .limit(1)
+        .limit(10)  // Prendre les 10 premières parties
         .get();
       
       if (!snapshot.empty) {
-        // Rejoindre une partie existante
-        const doc = snapshot.docs[0];
-        gameId = doc.id;
-        isPlayer1 = false;
-        
-        debugLog(`Partie trouvée! ID: ${gameId}`);
-        debugLog('Rejoindre en tant que Player 2');
-        
-        await matchmakingRef.doc(gameId).update({
-          player2: playerId,
-          player2Name: playerNickname,
-          player2Character: selectedChar,
-          status: "playing"
+        // Filtrer et trier côté client
+        const waitingGames = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          // Vérifier que la partie n'est pas trop ancienne (5 minutes)
+          const createdTime = data.created?.toDate?.() || new Date(0);
+          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+          
+          if (createdTime > fiveMinutesAgo && data.player1 !== playerId) {
+            waitingGames.push({ id: doc.id, data: data, created: createdTime });
+          } else if (createdTime <= fiveMinutesAgo) {
+            // Supprimer les parties trop anciennes
+            doc.ref.delete().catch(() => {});
+          }
         });
         
-        debugLog('Données Player 2 enregistrées');
-        updateMatchmakingStatus('Adversaire trouvé ! Démarrage...');
-        
-        setTimeout(() => {
-          startGame();
-        }, 500);
-        
-      } else {
-        // Créer une nouvelle partie
-        debugLog('Aucune partie trouvée, création d\'une nouvelle partie...');
-        const newGame = await matchmakingRef.add({
-          player1: playerId,
-          player1Name: playerNickname,
-          player1Character: selectedChar,
-          player2: null,
-          player2Name: null,
-          player2Character: null,
-          status: "waiting",
-          created: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        
-        gameId = newGame.id;
-        isPlayer1 = true;
-        
-        debugLog(`Nouvelle partie créée! ID: ${gameId}`);
-        debugLog('En attente du Player 2...');
-        updateMatchmakingStatus('En attente d\'un adversaire...');
-        
-        // Attendre le second joueur
-        waitForOpponent();
+        if (waitingGames.length > 0) {
+          // Trier par date de création (plus ancienne en premier)
+          waitingGames.sort((a, b) => a.created - b.created);
+          
+          // Rejoindre la partie la plus ancienne
+          const game = waitingGames[0];
+          gameId = game.id;
+          isPlayer1 = false;
+          
+          console.log('✅ Partie trouvée! Rejoindre en tant que Player 2');
+          
+          try {
+            await matchmakingRef.doc(gameId).update({
+              player2: playerId,
+              player2Name: playerNickname,
+              player2Character: selectedChar,
+              status: "playing"
+            });
+            
+            updateMatchmakingStatus('Adversaire trouvé ! Démarrage...');
+            setTimeout(() => startGame(), 500);
+            return;
+          } catch (error) {
+            console.warn('❌ Impossible de rejoindre cette partie, création d\'une nouvelle...');
+            // La partie a peut-être été supprimée entre-temps, créer une nouvelle
+          }
+        }
       }
+      
+      // Créer une nouvelle partie
+      console.log('🆕 Création d\'une nouvelle partie...');
+      const newGame = await matchmakingRef.add({
+        player1: playerId,
+        player1Name: playerNickname,
+        player1Character: selectedChar,
+        player2: null,
+        player2Name: null,
+        player2Character: null,
+        status: "waiting",
+        created: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      
+      gameId = newGame.id;
+      isPlayer1 = true;
+      
+      console.log('⏳ En attente du Player 2...');
+      updateMatchmakingStatus('En attente d\'un adversaire...');
+      
+      // Attendre le second joueur
+      waitForOpponent();
+      
     } catch (error) {
-      debugLog(`ERREUR matchmaking: ${error.message}`);
-      console.error('Erreur matchmaking:', error);
+      console.error('❌ Erreur matchmaking:', error);
       updateMatchmakingStatus('Erreur de connexion. Réessayez.');
     }
   }
 
   function waitForOpponent() {
-    debugLog('Écoute des changements pour le matchmaking...');
     const matchmakingRef = db.collection("matchmaking").doc(gameId);
     
     matchmakingUnsubscribe = matchmakingRef.onSnapshot(doc => {
       if (!doc.exists) {
-        debugLog('Le document de matchmaking n\'existe plus');
+        console.warn('⚠️ Document de matchmaking supprimé');
         return;
       }
       
       const data = doc.data();
-      debugLog(`Snapshot reçu - Status: ${data.status}`);
       
       if (data && data.status === "playing" && data.player2) {
-        debugLog('Player 2 a rejoint! Démarrage du jeu...');
+        console.log('🎮 Player 2 a rejoint! Démarrage...');
         if (matchmakingUnsubscribe) {
           matchmakingUnsubscribe();
           matchmakingUnsubscribe = null;
         }
         updateMatchmakingStatus('Adversaire trouvé ! Démarrage...');
-        
-        setTimeout(() => {
-          startGame();
-        }, 500);
+        setTimeout(() => startGame(), 500);
       }
     }, error => {
-      debugLog(`ERREUR snapshot: ${error.message}`);
-      console.error('Erreur snapshot:', error);
+      console.error('❌ Erreur snapshot matchmaking:', error);
     });
   }
 
@@ -376,29 +336,27 @@
   }
 
   function startGame() {
-    debugLog('Démarrage du jeu...');
+    console.log('🚀 Démarrage du jeu...');
     
     // Récupérer les infos des joueurs
     db.collection("matchmaking").doc(gameId).get().then(doc => {
       if (!doc.exists) {
-        debugLog('ERREUR: Document de matchmaking introuvable');
+        console.error('❌ Document de matchmaking introuvable');
         return;
       }
       
       const data = doc.data();
-      debugLog(`Données matchmaking récupérées: ${JSON.stringify(data)}`);
-      
       myCharacter = isPlayer1 ? data.player1Character : data.player2Character;
       opponentCharacter = isPlayer1 ? data.player2Character : data.player1Character;
       
-      debugLog(`Mon personnage: ${myCharacter}, Adversaire: ${opponentCharacter}`);
+      console.log(`👤 Mon personnage: ${myCharacter}, Adversaire: ${opponentCharacter}`);
       
       // Initialiser la référence du jeu
       gameRef = db.collection("games").doc(gameId);
       
       // Initialiser l'état du jeu (seulement Player 1)
       if (isPlayer1) {
-        debugLog('Initialisation de l\'état du jeu (Player 1)');
+        console.log('📝 Initialisation de l\'état du jeu (Player 1)');
         gameRef.set({
           player1Lives: 3,
           player2Lives: 3,
@@ -416,18 +374,15 @@
           gameOver: false,
           winner: null,
           timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        }).then(() => {
-          debugLog('État du jeu initialisé avec succès');
         }).catch(error => {
-          debugLog(`ERREUR initialisation état: ${error.message}`);
+          console.error('❌ Erreur initialisation état:', error);
         });
       }
       
       // Écouter les changements
-      debugLog('Configuration de l\'écoute des changements de jeu...');
+      console.log('👂 Configuration de l\'écoute des changements...');
       unsubscribe = gameRef.onSnapshot(doc => {
         if (!doc.exists) {
-          debugLog('Document de jeu n\'existe pas encore');
           return;
         }
         
@@ -436,23 +391,21 @@
           updateGameState(data);
         }
       }, error => {
-        debugLog(`ERREUR snapshot jeu: ${error.message}`);
+        console.error('❌ Erreur snapshot jeu:', error);
       });
       
       // Démarrer Phaser
-      debugLog('Initialisation de Phaser...');
       document.getElementById("matchmaking-modal").style.display = "none";
       initPhaser();
       
     }).catch(error => {
-      debugLog(`ERREUR récupération données: ${error.message}`);
-      console.error('Erreur récupération données:', error);
+      console.error('❌ Erreur récupération données:', error);
     });
   }
 
   // Annuler le matchmaking
   document.getElementById("cancel-btn").addEventListener("click", async () => {
-    debugLog('Annulation du matchmaking...');
+    console.log('🚫 Annulation du matchmaking...');
     
     if (matchmakingUnsubscribe) {
       matchmakingUnsubscribe();
@@ -462,9 +415,8 @@
     if (gameId && isPlayer1) {
       try {
         await db.collection("matchmaking").doc(gameId).delete();
-        debugLog('Partie supprimée');
       } catch (error) {
-        debugLog(`ERREUR suppression: ${error.message}`);
+        console.error('Erreur suppression:', error);
       }
     }
     
@@ -477,7 +429,6 @@
   });
 
   // Lancer le matchmaking au chargement
-  debugLog('Page chargée, lancement du matchmaking...');
   findMatch();
 
   // ==== Config Phaser ====
@@ -491,12 +442,10 @@
   var game;
 
   function initPhaser() {
-    debugLog('Création de l\'instance Phaser...');
     game = new Phaser.Game(config);
   }
 
   function preload(){
-    debugLog('Phaser: preload()');
     this.load.image('sky','assets/sky.png');
     this.load.image('ground','assets/platform.png');
     this.load.image('star','assets/piece.png');
@@ -511,7 +460,6 @@
   }
 
   function create(){
-    debugLog('Phaser: create()');
     this.add.image(400,300,'sky');
 
     // Vies du joueur (à gauche)
@@ -538,8 +486,6 @@
       .setBounce(0.2)
       .setCollideWorldBounds(true);
     
-    debugLog(`Joueur créé avec skin: ${mySkin}`);
-    
     // Texte du pseudo du joueur local
     myNameText = this.add.text(0, 0, playerNickname, {
       fontSize: '16px',
@@ -556,22 +502,17 @@
       .setBounce(0.2)
       .setCollideWorldBounds(true);
     
-    debugLog(`Adversaire créé avec skin: ${otherSkin}`);
-    
     // Récupérer le pseudo de l'adversaire
     db.collection("matchmaking").doc(gameId).get().then(doc => {
       const data = doc.data();
       const opponentName = isPlayer1 ? data.player2Name : data.player1Name;
       
-      // Texte du pseudo de l'adversaire
       opponentNameText = this.add.text(0, 0, opponentName || "Adversaire", {
         fontSize: '16px',
         fill: '#fff',
         backgroundColor: '#000000aa',
         padding: { x: 5, y: 2 }
       }).setOrigin(0.5, 1);
-      
-      debugLog(`Pseudo adversaire: ${opponentName}`);
     });
 
     // Créer les animations pour le joueur local
@@ -598,8 +539,6 @@
     this.physics.add.overlap(player, stars, collectStar, null, this);
     this.physics.add.collider(player, bombs, hitBomb, null, this);
     this.physics.add.collider(otherPlayer, bombs, () => {}, null, this);
-    
-    debugLog('Phaser: create() terminé');
   }
 
   function update(){
@@ -646,17 +585,13 @@
         [`${playerKey}Y`]: player.y,
         [`${playerKey}VelX`]: player.body.velocity.x,
         [`${playerKey}Anim`]: currentAnim
-      }).catch(error => {
-        // Ignorer les erreurs de mise à jour pour éviter de spammer la console
-      });
+      }).catch(() => {});
     }
   }
 
   function collectStar(player, star){
     const starIndex = stars.children.entries.indexOf(star);
     star.disableBody(true,true);
-    
-    debugLog(`Étoile ${starIndex} collectée`);
     
     // Mettre à jour les étoiles dans Firebase
     gameRef.get().then(doc => {
@@ -669,8 +604,6 @@
       if(activeStars === 0) {
         // Niveau terminé
         const newLevel = (data.currentLevel + 1) % platformLayouts.length;
-        
-        debugLog(`Niveau terminé! Passage au niveau ${newLevel}`);
         
         // Créer une nouvelle bombe
         const x = (player.x < 400) ? Phaser.Math.Between(400, 800) : Phaser.Math.Between(0, 400);
@@ -685,20 +618,16 @@
         gameRef.update({ stars: newStars });
       }
     }).catch(error => {
-      debugLog(`ERREUR collectStar: ${error.message}`);
+      console.error('Erreur collectStar:', error);
     });
   }
 
   function hitBomb(player, bomb){
-    debugLog('Joueur touché par une bombe!');
-    
     const playerKey = isPlayer1 ? 'player1Lives' : 'player2Lives';
     
     gameRef.get().then(doc => {
       const data = doc.data();
       const newLives = data[playerKey] - 1;
-      
-      debugLog(`Vies restantes: ${newLives}`);
       
       const update = {};
       update[playerKey] = newLives;
@@ -706,12 +635,11 @@
       if (newLives <= 0) {
         update.gameOver = true;
         update.winner = isPlayer1 ? 'player2' : 'player1';
-        debugLog('Game Over!');
       }
       
       gameRef.update(update);
     }).catch(error => {
-      debugLog(`ERREUR hitBomb: ${error.message}`);
+      console.error('Erreur hitBomb:', error);
     });
     
     bomb.disableBody(true, true);
@@ -805,8 +733,6 @@
   }
 
   function endGame(winner) {
-    debugLog(`Fin de partie! Gagnant: ${winner}`);
-    
     if (game && game.scene.scenes[0]) {
       game.scene.scenes[0].physics.pause();
     }
@@ -849,8 +775,6 @@
 
   // Nettoyage à la fermeture
   window.addEventListener('beforeunload', () => {
-    debugLog('Fermeture de la page...');
-    
     if (unsubscribe) {
       unsubscribe();
       unsubscribe = null;
