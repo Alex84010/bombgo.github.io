@@ -129,7 +129,7 @@
       spawnBomb();
 
       // Portail de fin
-      const end = this.physics.add.staticSprite(760, 80, 'end').setScale(0.05);
+      const end = this.physics.add.staticSprite(770, 80, 'end').setScale(0.05);
 
       // Collisions
       this.physics.add.collider(player, platforms);
@@ -190,10 +190,11 @@
     }
 
     function reachEnd() {
-      localStorage.setItem('level11', 'done');
+      localStorage.setItem('level10-1', 'done');
       window.location.href = '10-2.html';
     }
   </script>
 
 </body>
 </html>
+
