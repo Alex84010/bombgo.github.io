@@ -16,7 +16,6 @@
       font-family: Arial;
       text-align: center;
       height: 100vh;
-      overflow: hidden;
     }
 
     canvas {
@@ -28,27 +27,6 @@
       width: 600px;
       height: 400px;
       pointer-events: none;
-      transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
-    }
-
-    .levels.slide-in-left {
-      animation: slideInLeft 0.5s ease-in-out;
-    }
-
-    .levels.slide-out-left {
-      transform: translateX(-100%);
-      opacity: 0;
-    }
-
-    @keyframes slideInLeft {
-      from {
-        transform: translateX(-100%);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
     }
 
     .level {
@@ -81,7 +59,7 @@
   style="cursor:pointer; width:105px; position: fixed; top: 10px; right: 125px; display: none;"
   onclick="slideToNextPage()">
 
-  <div class="levels slide-in-left" id="levels"></div>
+  <div class="levels" id="levels"></div>
 
   <script>
     var config = {
@@ -288,14 +266,9 @@
       });
     }
 
-    // Fonction pour l'animation de glissement vers la page suivante
+    // Fonction pour aller à la page suivante
     function slideToNextPage() {
-      const levelsDiv = document.getElementById('levels');
-      levelsDiv.classList.add('slide-out-left');
-      
-      setTimeout(() => {
-        window.location.href = './niv11a20.html';
-      }, 500);
+      window.location.href = './niv11a20.html';
     }
 
     const levelsDiv = document.getElementById('levels');
