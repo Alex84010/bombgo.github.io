@@ -31,14 +31,24 @@
       transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
     }
 
+    .levels.slide-in-left {
+      animation: slideInLeft 0.5s ease-in-out;
+    }
+
     .levels.slide-out-left {
       transform: translateX(-100%);
       opacity: 0;
     }
 
-    .levels.slide-out-right {
-      transform: translateX(100%);
-      opacity: 0;
+    @keyframes slideInLeft {
+      from {
+        transform: translateX(-100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
     }
 
     .level {
@@ -71,7 +81,7 @@
   style="cursor:pointer; width:105px; position: fixed; top: 10px; right: 125px; display: none;"
   onclick="slideToNextPage()">
 
-  <div class="levels" id="levels"></div>
+  <div class="levels slide-in-left" id="levels"></div>
 
   <script>
     var config = {
