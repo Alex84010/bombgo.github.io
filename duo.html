@@ -207,12 +207,6 @@
   var unsubscribe = null;
   var matchmakingUnsubscribe = null;
 
-  // ✅ OPTIMISATION: Throttle pour Firebase
-  var lastPositionUpdate = 0;
-  var UPDATE_INTERVAL = 50; // 20 mises à jour par seconde au lieu de 60
-  var isUpdatingFirebase = false;
-  var lastGameState = {}; // Cache pour éviter les mises à jour inutiles
-
   // ==== Layout des niveaux ====
   var platformLayouts = [
     [{x:600,y:400},{x:50,y:250},{x:750,y:220}],
@@ -459,12 +453,12 @@
   function create(){
     this.add.image(400,300,'sky');
 
-    // Vies du joueur (à gauche)
+    // Vies du joueur (à gauche) - SANS TEXTE
     for(let i=0; i<3; i++) {
       myLifeIcons.push(this.add.image(40+i*45, 40, 'vie').setScale(0.02));
     }
 
-    // Vies de l'adversaire (à droite)
+    // Vies de l'adversaire (à droite) - SANS TEXTE
     for(let i=0; i<3; i++) {
       opponentLifeIcons.push(this.add.image(800-40-i*45, 40, 'vie').setScale(0.02));
     }
@@ -516,12 +510,11 @@
 
     cursors = this.input.keyboard.createCursorKeys();
 
-    // ✅ Pièces - gravité définie une seule fois
+    // Pièces avec gravité normale (pas de gravité supplémentaire)
     stars = this.physics.add.group({key:'star', repeat:11, setXY:{x:12,y:0,stepX:70}});
     stars.children.iterate(c => { 
       c.setBounceY(Phaser.Math.FloatBetween(0.4,0.8)); 
       c.setScale(0.015);
-      c.body.setGravityY(200);
     });
 
     bombs = this.physics.add.group();
@@ -535,6 +528,8 @@
     this.physics.add.collider(otherPlayer, bombs, () => {}, null, this);
   }
 
+  var updateCounter = 0;
+  
   function update(){
     if(gameOver) return;
     
@@ -568,23 +563,16 @@
       opponentNameText.setPosition(otherPlayer.x, otherPlayer.y - 40);
     }
 
-    // ✅ OPTIMISATION: Throttle des mises à jour Firebase
-    const now = Date.now();
-    if (gameRef && player && now - lastPositionUpdate > UPDATE_INTERVAL && !isUpdatingFirebase) {
-      lastPositionUpdate = now;
-      isUpdatingFirebase = true;
-      
+    // Mettre à jour Firebase seulement toutes les 3 frames pour réduire le lag
+    updateCounter++;
+    if (gameRef && player && updateCounter % 3 === 0) {
       const playerKey = isPlayer1 ? 'player1' : 'player2';
       gameRef.update({
-        [`${playerKey}X`]: Math.round(player.x),
-        [`${playerKey}Y`]: Math.round(player.y),
-        [`${playerKey}VelX`]: Math.round(player.body.velocity.x),
+        [`${playerKey}X`]: player.x,
+        [`${playerKey}Y`]: player.y,
+        [`${playerKey}VelX`]: player.body.velocity.x,
         [`${playerKey}Anim`]: currentAnim
-      }).then(() => {
-        isUpdatingFirebase = false;
-      }).catch(() => {
-        isUpdatingFirebase = false;
-      });
+      }).catch(() => {});
     }
   }
 
@@ -641,22 +629,18 @@
     bomb.disableBody(true, true);
   }
 
+  var lastBombCount = 0;
+
   function updateGameState(data) {
     updateLives(data.player1Lives, data.player2Lives);
     
-    // ✅ OPTIMISATION: Position adversaireavec interpolation
     if (otherPlayer) {
       const otherX = isPlayer1 ? data.player2X : data.player1X;
       const otherY = isPlayer1 ? data.player2Y : data.player1Y;
       const otherAnim = isPlayer1 ? data.player2Anim : data.player1Anim;
       
       if (otherX !== undefined && otherY !== undefined) {
-        const distance = Phaser.Math.Distance.Between(otherPlayer.x, otherPlayer.y, otherX, otherY);
-        
-        // Seulement mettre à jour si mouvement significatif
-        if (distance > 3) {
-          otherPlayer.setPosition(otherX, otherY);
-        }
+        otherPlayer.setPosition(otherX, otherY);
         
         if (otherAnim === 'left') {
           otherPlayer.anims.play('other-left', true);
@@ -668,55 +652,29 @@
       }
     }
     
-    // ✅ OPTIMISATION: Étoiles - mise à jour seulement si changement
-    if (stars && data.stars && JSON.stringify(data.stars) !== JSON.stringify(lastGameState.stars)) {
+    // Mettre à jour les étoiles
+    if (stars && data.stars) {
       stars.children.entries.forEach((star, i) => {
-        if (data.stars[i] && !star.active) {
-          star.enableBody(true, 12 + i * 70, 0, true, true);
-          // Pas besoin de remettre la gravité, elle est déjà définie
-        } else if (!data.stars[i] && star.active) {
+        if (data.stars[i]) {
+          star.enableBody(true, star.x, star.y, true, true);
+        } else {
           star.disableBody(true, true);
         }
       });
-      lastGameState.stars = [...data.stars];
     }
     
-    // ✅ OPTIMISATION: Bombes - comparaison intelligente
-    if (bombs && data.bombs) {
-      const bombsChanged = JSON.stringify(data.bombs) !== JSON.stringify(lastGameState.bombs);
+    // Mettre à jour les bombes SEULEMENT si le nombre a changé (optimisation)
+    if (bombs && data.bombs && data.bombs.length !== lastBombCount) {
+      lastBombCount = data.bombs.length;
+      bombs.clear(true, true);
       
-      if (bombsChanged) {
-        // Créer un Set des positions actuelles
-        const currentBombPositions = new Set(
-          bombs.children.entries.map(b => `${Math.round(b.x)}_${Math.round(b.y)}`)
-        );
-        
-        const newBombPositions = new Set(
-          data.bombs.map(b => `${Math.round(b.x)}_${Math.round(b.y)}`)
-        );
-        
-        // Supprimer les bombes qui n'existent plus
-        bombs.children.entries.forEach(bomb => {
-          const key = `${Math.round(bomb.x)}_${Math.round(bomb.y)}`;
-          if (!newBombPositions.has(key)) {
-            bomb.destroy();
-          }
-        });
-        
-        // Ajouter les nouvelles bombes
-        data.bombs.forEach(b => {
-          const key = `${Math.round(b.x)}_${Math.round(b.y)}`;
-          if (!currentBombPositions.has(key)) {
-            const bomb = bombs.create(b.x, b.y, 'bomb');
-            bomb.setScale(0.015);
-            bomb.setBounce(1);
-            bomb.setCollideWorldBounds(true);
-            bomb.setVelocity(b.vx, 20);
-          }
-        });
-        
-        lastGameState.bombs = JSON.parse(JSON.stringify(data.bombs));
-      }
+      data.bombs.forEach(b => {
+        const bomb = bombs.create(b.x, b.y, 'bomb');
+        bomb.setScale(0.015);
+        bomb.setBounce(1);
+        bomb.setCollideWorldBounds(true);
+        bomb.setVelocity(b.vx, 20);
+      });
     }
     
     // Mettre à jour le niveau
