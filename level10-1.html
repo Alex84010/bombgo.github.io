@@ -51,7 +51,7 @@
     new Phaser.Game(config);
 
     /* ================= VARIABLES ================= */
-    let player, cursors, stars, bombs, platforms;
+    let player, cursors, bombs, platforms;
     let lives = 3;
     let lifeIcons = [];
     let gameOver = false;
@@ -60,7 +60,6 @@
     function preload() {
       this.load.image('sky', 'assets/redsky.png');
       this.load.image('ground', 'assets/redplatforme.png');
-      this.load.image('star', 'assets/piece.png');
       this.load.image('bomb', 'assets/bombe.png');
       this.load.image('vie', 'assets/vie1.png');
       this.load.image('novie', 'assets/vie2.png');
@@ -77,7 +76,7 @@
     function create() {
       this.add.image(400, 300, 'sky');
 
-      // Texte niveau (NE SERA PLUS MODIFIÉ)
+      // Texte niveau
       this.add.text(16, 16, 'Level 11', {
         fontSize: '32px',
         fill: '#000'
@@ -124,18 +123,6 @@
 
       cursors = this.input.keyboard.createCursorKeys();
 
-      // Pièces (VISIBLES + RESPAWN CORRECT)
-      stars = this.physics.add.group({
-        key: 'star',
-        repeat: 7,
-        setXY: { x: 50, y: 0, stepX: 100 }
-      });
-
-      stars.children.iterate(c => {
-        c.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
-        c.setScale(0.015);
-      });
-
       // Bombes
       bombs = this.physics.add.group();
       spawnBomb();
@@ -146,9 +133,7 @@
 
       // Collisions
       this.physics.add.collider(player, platforms);
-      this.physics.add.collider(stars, platforms);
       this.physics.add.collider(bombs, platforms);
-      this.physics.add.overlap(player, stars, collectStar, null, this);
       this.physics.add.collider(player, bombs, hitBomb, null, this);
       this.physics.add.overlap(player, end, reachEnd, null, this);
     }
@@ -174,16 +159,6 @@
     }
 
     /* ================= GAMEPLAY ================= */
-    function collectStar(player, star) {
-      star.disableBody(true, true);
-
-      if (stars.countActive(true) === 0) {
-        stars.children.iterate((c, i) => {
-          c.enableBody(true, 50 + i * 100, 0, true, true);
-        });
-      }
-    }
-
     function hitBomb(player, bomb) {
       bomb.disableBody(true, true);
       lives--;
@@ -216,7 +191,7 @@
 
     function reachEnd() {
       localStorage.setItem('level11', 'done');
-      window.location.href = 'niv1a10.html';
+      window.location.href = '10-2.html';
     }
   </script>
 
