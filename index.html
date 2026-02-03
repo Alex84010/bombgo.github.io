@@ -95,6 +95,10 @@
       right: false
     };
 
+    // Code secret ZQSD
+    const secretCode = ['z', 'q', 's', 'd'];
+    let currentSequence = [];
+
     // Fonction pour obtenir la position de la plateforme
     function getPlatformRect() {
       const rect = plateforme.getBoundingClientRect();
@@ -132,12 +136,28 @@
       perso.style.top = pos.y + "px";
     });
 
-    plateforme.addEventListener("click", () => {
-      active = true;
-      console.log("Easter egg activé");
-    });
-
+    // Détecter le code secret ZQSD
     document.addEventListener("keydown", (e) => {
+      const key = e.key.toLowerCase();
+      
+      // Vérifier si c'est une touche du code secret et que le secret n'est pas déjà activé
+      if (!active && secretCode.includes(key)) {
+        currentSequence.push(key);
+        
+        // Garder seulement les 4 dernières touches
+        if (currentSequence.length > 4) {
+          currentSequence.shift();
+        }
+        
+        // Vérifier si la séquence correspond
+        if (currentSequence.length === 4 && 
+            currentSequence.join('') === secretCode.join('')) {
+          active = true;
+          console.log("Easter egg activé avec ZQSD !");
+          currentSequence = []; // Réinitialiser la séquence
+        }
+      }
+
       if (!active) return;
 
       if (e.key === "ArrowLeft") keys.left = true;
@@ -228,10 +248,3 @@
 </body>
 
 </html>
-
-
-
-
-
-
-
