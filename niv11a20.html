@@ -51,7 +51,7 @@
     onclick="window.location.href='./index.html'">
   <img src="assets/logoretour.png" alt="Retour"
     style="cursor:pointer; width:105px; position: fixed; top: 10px; left: 125px;"
-    onclick="window.location.href='./index.html'">
+    onclick="slideToPreviousPage()">
   <img src="assets/logorefresh.png" alt="Actualiser"
     style="cursor:pointer; width:105px; position: fixed; top: 10px; right: 10px;"
     onclick="window.location.href='./niv11a20.html'">
@@ -103,7 +103,7 @@
     const levelsDiv = document.getElementById('levels');
 
     const positions = [
-      { x: -75, y: 320 },  //11
+      { x: -75, y: 320 },  //11 (premier niveau de cette page)
       { x: 0, y: 190 },    //12
       { x: 35, y: 40 },    //13
       { x: 160, y: -50 },  //14
@@ -126,7 +126,7 @@
       const level = document.createElement('div');
       level.className = 'level';
 
-      // Position basée sur l'index dans le tableau (i - 11)
+      // Position basée sur l'index dans le tableau (i - 11 donne 0 pour level 11, 1 pour level 12, etc.)
       level.style.left = positions[i - 11].x + 'px';
       level.style.top = positions[i - 11].y + 'px';
 
@@ -181,4 +181,3 @@
 </body>
 
 </html>
-
