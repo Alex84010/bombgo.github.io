@@ -16,6 +16,7 @@
       font-family: Arial;
       text-align: center;
       height: 100vh;
+      overflow: hidden;
     }
 
     canvas {
@@ -27,6 +28,17 @@
       width: 600px;
       height: 400px;
       pointer-events: none;
+      transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
+    }
+
+    .levels.slide-out-left {
+      transform: translateX(-100%);
+      opacity: 0;
+    }
+
+    .levels.slide-out-right {
+      transform: translateX(100%);
+      opacity: 0;
     }
 
     .level {
@@ -57,7 +69,7 @@
     onclick="window.location.href='./niv1a10.html'">
   <img id="nextLevels" src="assets/flechedroite.png" alt="Niveaux suivants"
   style="cursor:pointer; width:105px; position: fixed; top: 10px; right: 125px; display: none;"
-  onclick="window.location.href='./niv11a20.html'">
+  onclick="slideToNextPage()">
 
   <div class="levels" id="levels"></div>
 
@@ -266,6 +278,16 @@
       });
     }
 
+    // Fonction pour l'animation de glissement vers la page suivante
+    function slideToNextPage() {
+      const levelsDiv = document.getElementById('levels');
+      levelsDiv.classList.add('slide-out-left');
+      
+      setTimeout(() => {
+        window.location.href = './niv11a20.html';
+      }, 500);
+    }
+
     const levelsDiv = document.getElementById('levels');
 
     const positions = [
@@ -297,25 +319,22 @@
 
       const img = document.createElement('img');
 
-let isUnlocked;
+      let isUnlocked;
 
-if (i === 1) {
-  isUnlocked = true;
-}
-else if (i === 10) {
-  // Le niveau 10 NE dépend PLUS du niveau 9
-  isUnlocked = localStorage.getItem('unlockLevel10') === 'true';
-}
-else {
-  // Tous les autres niveaux dépendent du précédent
-  isUnlocked = localStorage.getItem('level' + (i - 1)) === 'done';
-}
+      if (i === 1) {
+        isUnlocked = true;
+      }
+      else if (i === 10) {
+        // Le niveau 10 NE dépend PLUS du niveau 9
+        isUnlocked = localStorage.getItem('unlockLevel10') === 'true';
+      }
+      else {
+        // Tous les autres niveaux dépendent du précédent
+        isUnlocked = localStorage.getItem('level' + (i - 1)) === 'done';
+      }
 
       if (isUnlocked) {
         level.classList.add('active');
-        img.src = localStorage.getItem('level' + i) === 'done'
-          ? 'assets/levelgood.png'
-          : 'assets/levelbad.png';
 
         // NIVEAU 10 : IMAGES SPÉCIALES
         if (i === 10) {
@@ -346,9 +365,9 @@ else {
     }
 
     // Afficher le bouton "niveaux suivants" si le niveau 9 est terminé
-if (localStorage.getItem('level9') === 'done') {
-  document.getElementById('nextLevels').style.display = 'block';
-}
+    if (localStorage.getItem('level9') === 'done') {
+      document.getElementById('nextLevels').style.display = 'block';
+    }
 
   </script>
 
@@ -356,4 +375,3 @@ if (localStorage.getItem('level9') === 'done') {
 
 
 </html>
-
