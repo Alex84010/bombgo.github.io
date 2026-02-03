@@ -16,7 +16,6 @@
       font-family: Arial;
       text-align: center;
       height: 100vh;
-      overflow: hidden;
     }
 
     canvas {
@@ -28,32 +27,6 @@
       width: 600px;
       height: 400px;
       pointer-events: none;
-      transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
-    }
-
-    .levels.slide-in-right {
-      animation: slideInRight 0.5s ease-in-out;
-    }
-
-    .levels.slide-out-right {
-      transform: translateX(100%);
-      opacity: 0;
-    }
-
-    .levels.slide-out-left {
-      transform: translateX(-100%);
-      opacity: 0;
-    }
-
-    @keyframes slideInRight {
-      from {
-        transform: translateX(100%);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
     }
 
     .level {
@@ -88,9 +61,14 @@
     style="cursor:pointer; width:105px; position: fixed; top: 10px; right: 125px;"
     onclick="slideToPreviousPage()">
 
-  <div class="levels slide-in-right" id="levels"></div>
+  <div class="levels" id="levels"></div>
 
   <script>
+    // Vérifier si le niveau 9 est terminé avant d'accéder à cette page
+    if (localStorage.getItem('level9') !== 'done') {
+      window.location.href = './niv1a10.html';
+    }
+
     var config = {
       type: Phaser.AUTO,
       width: 800,
@@ -122,14 +100,9 @@
 
     function update() {}
 
-    // Fonction pour l'animation de glissement vers la page précédente
+    // Fonction pour retourner à la page précédente
     function slideToPreviousPage() {
-      const levelsDiv = document.getElementById('levels');
-      levelsDiv.classList.add('slide-out-right');
-      
-      setTimeout(() => {
-        window.location.href = './niv1a10.html';
-      }, 500);
+      window.location.href = './niv1a10.html';
     }
 
     const levelsDiv = document.getElementById('levels');
