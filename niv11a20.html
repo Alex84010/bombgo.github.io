@@ -16,6 +16,7 @@
       font-family: Arial;
       text-align: center;
       height: 100vh;
+      overflow: hidden;
     }
 
     canvas {
@@ -27,6 +28,27 @@
       width: 600px;
       height: 400px;
       pointer-events: none;
+      transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
+    }
+
+    .levels.slide-in-right {
+      animation: slideInRight 0.5s ease-in-out;
+    }
+
+    .levels.slide-out-right {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+
+    @keyframes slideInRight {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
     }
 
     .level {
@@ -51,7 +73,7 @@
     onclick="window.location.href='./index.html'">
   <img src="assets/logoretour.png" alt="Retour"
     style="cursor:pointer; width:105px; position: fixed; top: 10px; left: 125px;"
-    onclick="window.location.href='./niv1a10.html'">
+    onclick="slideToPreviousPage()">
   <img src="assets/logorefresh.png" alt="Actualiser"
     style="cursor:pointer; width:105px; position: fixed; top: 10px; right: 10px;"
     onclick="window.location.href='./niv11a20.html'">
@@ -59,9 +81,9 @@
   <!-- Flèche gauche pour retourner aux niveaux 1-10 -->
   <img src="assets/flechegauche.png" alt="Niveaux précédents"
     style="cursor:pointer; width:105px; position: fixed; top: 10px; right: 125px;"
-    onclick="window.location.href='./niv1a10.html'">
+    onclick="slideToPreviousPage()">
 
-  <div class="levels" id="levels"></div>
+  <div class="levels slide-in-right" id="levels"></div>
 
   <script>
     var config = {
@@ -95,6 +117,16 @@
 
     function update() {}
 
+    // Fonction pour l'animation de glissement vers la page précédente
+    function slideToPreviousPage() {
+      const levelsDiv = document.getElementById('levels');
+      levelsDiv.classList.add('slide-out-right');
+      
+      setTimeout(() => {
+        window.location.href = './niv1a10.html';
+      }, 500);
+    }
+
     const levelsDiv = document.getElementById('levels');
 
     const positions = [
@@ -127,9 +159,18 @@
 
       const img = document.createElement('img');
 
-      // Un niveau est débloqué si c'est le niveau 11 OU si le niveau précédent est terminé
-      const isUnlocked = 
-        i === 11 || localStorage.getItem('level' + (i - 1)) === 'done';
+      let isUnlocked;
+
+      if (i === 11) {
+        // Le niveau 11 dépend du niveau 9 (pas du niveau 10)
+        isUnlocked = localStorage.getItem('level9') === 'done';
+      } else if (i === 20) {
+        // Le niveau 20 a son propre système de déblocage
+        isUnlocked = localStorage.getItem('unlockLevel20') === 'true';
+      } else {
+        // Tous les autres niveaux (12-19) dépendent du précédent
+        isUnlocked = localStorage.getItem('level' + (i - 1)) === 'done';
+      }
 
       if (isUnlocked) {
         level.classList.add('active');
