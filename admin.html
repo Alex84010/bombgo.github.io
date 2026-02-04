@@ -50,10 +50,24 @@ th, td {
 .hidden {
   display: none;
 }
+#debug {
+  background: #222;
+  margin: 20px auto;
+  padding: 10px;
+  max-width: 800px;
+  text-align: left;
+  font-family: monospace;
+  font-size: 12px;
+  border: 1px solid #555;
+}
 </style>
 </head>
 <body>
 <h1>PANEL ADMIN</h1>
+
+<!-- DEBUG INFO -->
+<div id="debug"></div>
+
 <!-- LOGIN -->
 <div id="loginBox">
   <input id="email" type="email" placeholder="email admin"><br>
@@ -87,48 +101,110 @@ firebase.initializeApp({
 });
 const auth = firebase.auth();
 const db = firebase.firestore();
+
+// Debug helper
+function log(msg) {
+  console.log(msg);
+  const debugDiv = document.getElementById('debug');
+  debugDiv.innerHTML += `<div>${new Date().toLocaleTimeString()} - ${msg}</div>`;
+}
+
 // 🔐 LOGIN
 function login(){
+  log("Tentative de connexion...");
   auth.signInWithEmailAndPassword(
     email.value,
     password.value
   )
-  .then(() => {
-    alert("Connecté");
+  .then((userCredential) => {
+    log("✅ Authentification réussie pour: " + userCredential.user.email);
+    log("UID: " + userCredential.user.uid);
   })
   .catch(e => {
+    log("❌ Erreur authentification: " + e.message);
     alert("Erreur : " + e.message);
   });
 }
+
 // 🔓 LOGOUT
 function logout(){
+  log("Déconnexion...");
   auth.signOut();
 }
+
 // 👮 CHECK ADMIN
 auth.onAuthStateChanged(async user => {
+  log("=== onAuthStateChanged déclenché ===");
+  
   if(!user){
+    log("❌ Aucun utilisateur connecté");
     loginBox.classList.remove("hidden");
     adminBox.classList.add("hidden");
     return;
   }
-  const snap = await db.collection("users").doc(user.uid).get();
-  if(!snap.exists || snap.data().isAdmin !== true){
-    alert("Accès refusé");
+  
+  log("✅ Utilisateur connecté: " + user.email);
+  log("Vérification du document Firestore pour UID: " + user.uid);
+  
+  try {
+    const snap = await db.collection("users").doc(user.uid).get();
+    
+    log("Document existe? " + snap.exists);
+    
+    if(!snap.exists) {
+      log("❌ Document utilisateur introuvable dans Firestore");
+      log("⚠️ SOLUTION: Créez un document dans Firestore -> users -> " + user.uid);
+      log("   Avec les champs: { isAdmin: true, pseudo: 'Admin' }");
+      alert("Accès refusé : Document utilisateur introuvable");
+      auth.signOut();
+      return;
+    }
+    
+    const userData = snap.data();
+    log("Données utilisateur: " + JSON.stringify(userData));
+    log("isAdmin = " + userData.isAdmin);
+    
+    if(userData.isAdmin !== true){
+      log("❌ isAdmin n'est pas true");
+      log("⚠️ SOLUTION: Modifiez le document Firestore -> users -> " + user.uid);
+      log("   Ajoutez le champ: isAdmin: true");
+      alert("Accès refusé : Vous n'êtes pas administrateur");
+      auth.signOut();
+      return;
+    }
+    
+    // ✅ ADMIN OK
+    log("✅✅✅ Accès admin autorisé!");
+    loginBox.classList.add("hidden");
+    adminBox.classList.remove("hidden");
+    loadUsers();
+    
+  } catch(error) {
+    log("❌ Erreur lors de la vérification: " + error.message);
+    alert("Erreur: " + error.message);
     auth.signOut();
-    return;
   }
-  // ✅ ADMIN OK
-  loginBox.classList.add("hidden");
-  adminBox.classList.remove("hidden");
-  loadUsers();
 });
+
 // 📋 LOAD USERS
 function loadUsers(){
+  log("Chargement de la liste des utilisateurs...");
+  
   db.collection("users").onSnapshot(snap => {
+    log("📊 Nombre de documents dans 'users': " + snap.size);
     userList.innerHTML = "";
+    let count = 0;
+    
     snap.forEach(doc => {
       const u = doc.data();
-      if(u.isAdmin) return;
+      log("User " + doc.id + ": " + JSON.stringify(u));
+      
+      if(u.isAdmin) {
+        log("  ↳ Ignoré (isAdmin=true)");
+        return;
+      }
+      
+      count++;
       userList.innerHTML += `
         <tr>
           <td>${doc.id}</td>
@@ -140,19 +216,34 @@ function loadUsers(){
         </tr>
       `;
     });
+    
+    log("✅ " + count + " utilisateurs affichés dans le tableau");
+  }, error => {
+    log("❌ Erreur chargement users: " + error.message);
   });
 }
+
 // 💾 SAVE
 function saveUser(id){
+  log("Sauvegarde de l'utilisateur: " + id);
+  
   db.collection("users").doc(id).update({
     pseudo: document.getElementById("p_" + id).value,
     maxScore: Number(document.getElementById("s_" + id).value),
     skin: Number(document.getElementById("k_" + id).value),
     niveauxDebloques: Number(document.getElementById("n_" + id).value)
   })
-  .then(() => alert("Sauvegardé"))
-  .catch(e => alert(e.message));
+  .then(() => {
+    log("✅ Utilisateur " + id + " sauvegardé");
+    alert("Sauvegardé");
+  })
+  .catch(e => {
+    log("❌ Erreur sauvegarde: " + e.message);
+    alert(e.message);
+  });
 }
+
+log("🚀 Application démarrée");
 </script>
 </body>
 </html>
