@@ -54,6 +54,45 @@
 
   let playerNickname = localStorage.getItem("playerNickname") || "player";
 
+  // ==== Synchronisation automatique des données utilisateur ====
+  async function syncUserData() {
+    try {
+      const docRef = db.collection("users").doc(deviceId);
+      const doc = await docRef.get();
+      
+      const currentData = {
+        pseudo: playerNickname,
+        skin: parseInt(localStorage.getItem("selectedCharacter") || "1"),
+        niveauxDebloques: currentLevel + 1
+      };
+      
+      if (!doc.exists) {
+        // Nouveau joueur : créer le document
+        await docRef.set({
+          ...currentData,
+          maxScore: score
+        });
+        console.log("✅ Nouveau joueur créé");
+      } else {
+        // Joueur existant : mettre à jour
+        const oldData = doc.data();
+        const updates = { ...currentData };
+        
+        // Mettre à jour le score seulement s'il est meilleur
+        if (score > (oldData.maxScore || 0)) {
+          updates.maxScore = score;
+        }
+        
+        await docRef.update(updates);
+        console.log("✅ Données mises à jour");
+      }
+    } catch(err) {
+      console.error("❌ Erreur sync:", err);
+    }
+  }
+
+  // Initialiser les données dès le chargement
+  syncUserData();
   // ==== Variables globales ====
   var player, cursors, stars, bombs, platforms;
   var score = 0, scoreText;
@@ -159,18 +198,9 @@
       gameOver=true;
       this.physics.pause();
       player.setTint(0xff0000); player.anims.play('turn');
-      saveScore();
+      syncUserData(); // Sauvegarder à la fin de la partie
     }
   }
-
-  function saveScore() {
-  db.collection("users").doc(deviceId).set({
-    pseudo: playerNickname,
-    maxScore: score,
-    skin: localStorage.getItem("selectedCharacter") || 1,
-    niveauxDebloques: currentLevel + 1
-  }, { merge: true });
-}
 
   function createPlatformsForLevel(level){
     platformsArray.forEach(p=>p.destroy());
@@ -181,6 +211,7 @@
   function changeLevel(){
     currentLevel = (currentLevel+1)%platformLayouts.length;
     createPlatformsForLevel(currentLevel);
+    syncUserData(); // Synchroniser à chaque changement de niveau
   }
 
 </script>
