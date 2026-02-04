@@ -42,45 +42,96 @@
   <h1>Mes niveaux</h1>
   <div id="liste"></div>
   <script>
-    const liste = document.getElementById("liste");
-    const niveaux = JSON.parse(localStorage.getItem("mesNiveaux")) || [];
-    
-    console.log("Niveaux trouvés:", niveaux);
-    console.log("Nombre de niveaux:", niveaux.length);
-    
-    if (niveaux.length === 0) {
-      liste.innerHTML = "<p>Aucun niveau publié</p>";
-    } else {
-      niveaux.forEach((niveau, index) => {
-        console.log(`Niveau ${index}:`, niveau);
-        console.log(`Image du niveau ${index}:`, niveau.image ? "PRÉSENTE" : "ABSENTE");
-        
-        const div = document.createElement("div");
-        div.className = "niveau";
-        
-        const img = document.createElement("img");
-        img.src = niveau.image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='135'%3E%3Crect fill='%23333' width='180' height='135'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='%23fff'%3EErreur%3C/text%3E%3C/svg%3E";
-        img.alt = niveau.nom;
-        img.onerror = function() {
-          console.error(`Erreur de chargement de l'image pour: ${niveau.nom}`);
-          this.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='135'%3E%3Crect fill='%23555' width='180' height='135'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='%23fff' font-size='14'%3EImage introuvable%3C/text%3E%3C/svg%3E";
-        };
-        
-        const p = document.createElement("p");
-        p.textContent = niveau.nom;
-        
-        div.appendChild(img);
-        div.appendChild(p);
-        
-        div.onclick = () => {
-          localStorage.setItem("niveauAJouer", index);
-          window.location.href = "jouer.html";
-        };
-        
-        liste.appendChild(div);
-      });
-    }
+const liste = document.getElementById("liste");
+let niveaux = JSON.parse(localStorage.getItem("mesNiveaux")) || [];
+
+console.log("Niveaux trouvés:", niveaux);
+
+if (niveaux.length === 0) {
+  liste.innerHTML = "<p>Aucun niveau publié</p>";
+} else {
+  niveaux.forEach((niveau, index) => {
+    const div = document.createElement("div");
+    div.className = "niveau";
+    div.style.position = "relative"; // nécessaire pour le menu
+
+    // Image du niveau
+    const img = document.createElement("img");
+    img.src = niveau.image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='135'%3E%3Crect fill='%23333' width='180' height='135'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='%23fff'%3EErreur%3C/text%3E%3C/svg%3E";
+    img.alt = niveau.nom;
+    img.style.width = "180px";
+    img.style.height = "135px";
+    img.style.borderRadius = "10px";
+    img.style.objectFit = "cover";
+
+    // Nom du niveau
+    const p = document.createElement("p");
+    p.textContent = niveau.nom;
+
+    // Menu en haut à droite
+    const menu = document.createElement("div");
+    menu.style.position = "absolute";
+    menu.style.top = "5px";
+    menu.style.right = "5px";
+    menu.style.background = "rgba(0,0,0,0.6)";
+    menu.style.borderRadius = "5px";
+    menu.style.padding = "2px";
+    menu.style.display = "flex";
+    menu.style.gap = "2px";
+
+    // Boutons Supprimer, Éditer, Partager
+    const btnSupprimer = document.createElement("button");
+    btnSupprimer.textContent = "🗑️";
+    btnSupprimer.title = "Supprimer";
+    btnSupprimer.style.cursor = "pointer";
+    btnSupprimer.onclick = (e) => {
+      e.stopPropagation(); // empêche de déclencher l'ouverture du niveau
+      if (confirm(`Supprimer le niveau "${niveau.nom}" ?`)) {
+        niveaux.splice(index, 1);
+        localStorage.setItem("mesNiveaux", JSON.stringify(niveaux));
+        div.remove();
+      }
+    };
+
+    const btnEditer = document.createElement("button");
+    btnEditer.textContent = "✏️";
+    btnEditer.title = "Éditer";
+    btnEditer.style.cursor = "pointer";
+    btnEditer.onclick = (e) => {
+      e.stopPropagation();
+      localStorage.setItem("niveauAEditer", index);
+      window.location.href = "editer.html";
+    };
+
+    const btnPartager = document.createElement("button");
+    btnPartager.textContent = "🔗";
+    btnPartager.title = "Partager";
+    btnPartager.style.cursor = "pointer";
+    btnPartager.onclick = (e) => {
+      e.stopPropagation();
+      const code = btoa(JSON.stringify(niveau)); // encode le niveau en base64
+      prompt("Copiez ce code pour le partager :", code);
+    };
+
+    menu.appendChild(btnSupprimer);
+    menu.appendChild(btnEditer);
+    menu.appendChild(btnPartager);
+
+    div.appendChild(img);
+    div.appendChild(p);
+    div.appendChild(menu);
+
+    div.onclick = () => {
+      localStorage.setItem("niveauAJouer", index);
+      window.location.href = "jouer.html";
+    };
+
+    liste.appendChild(div);
+  });
+}
   </script>
+  
 </body>
 </html>
+
 
