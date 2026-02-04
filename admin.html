@@ -3,14 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <title>Admin</title>
-
 <link rel="icon" href="./favicon.png">
-
 <!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
 <style>
 body {
   margin: 0;
@@ -19,11 +16,9 @@ body {
   font-family: Arial;
   text-align: center;
 }
-
 h1 {
   margin-top: 60px;
 }
-
 input {
   padding: 10px;
   font-size: 18px;
@@ -31,7 +26,6 @@ input {
   border-radius: 6px;
   border: none;
 }
-
 button {
   padding: 10px 20px;
   font-size: 18px;
@@ -41,43 +35,34 @@ button {
   background: #4CAF50;
   color: white;
 }
-
 button:hover {
   background: #45a049;
 }
-
 table {
   margin: 40px auto;
   border-collapse: collapse;
   width: 90%;
 }
-
 th, td {
   border: 1px solid #666;
   padding: 8px;
 }
-
 .hidden {
   display: none;
 }
 </style>
 </head>
-
 <body>
-
 <h1>PANEL ADMIN</h1>
-
 <!-- LOGIN -->
 <div id="loginBox">
   <input id="email" type="email" placeholder="email admin"><br>
   <input id="password" type="password" placeholder="mot de passe"><br>
   <button onclick="login()">Connexion</button>
 </div>
-
 <!-- ADMIN -->
 <div id="adminBox" class="hidden">
   <button onclick="logout()">Déconnexion</button>
-
   <table>
     <thead>
       <tr>
@@ -92,7 +77,6 @@ th, td {
     <tbody id="userList"></tbody>
   </table>
 </div>
-
 <script>
 // 🔥 CONFIG (LA TIENNE)
 firebase.initializeApp({
@@ -101,10 +85,8 @@ firebase.initializeApp({
   projectId: "bombgo-classement",
   appId: "1:113313571513:web:73863b02df8193606ef168"
 });
-
 const auth = firebase.auth();
 const db = firebase.firestore();
-
 // 🔐 LOGIN
 function login(){
   auth.signInWithEmailAndPassword(
@@ -118,45 +100,35 @@ function login(){
     alert("Erreur : " + e.message);
   });
 }
-
 // 🔓 LOGOUT
 function logout(){
   auth.signOut();
 }
-
 // 👮 CHECK ADMIN
 auth.onAuthStateChanged(async user => {
-
   if(!user){
     loginBox.classList.remove("hidden");
     adminBox.classList.add("hidden");
     return;
   }
-
   const snap = await db.collection("users").doc(user.uid).get();
-
   if(!snap.exists || snap.data().isAdmin !== true){
     alert("Accès refusé");
     auth.signOut();
     return;
   }
-
   // ✅ ADMIN OK
   loginBox.classList.add("hidden");
   adminBox.classList.remove("hidden");
   loadUsers();
 });
-
 // 📋 LOAD USERS
 function loadUsers(){
   db.collection("users").onSnapshot(snap => {
-
     userList.innerHTML = "";
-
     snap.forEach(doc => {
       const u = doc.data();
       if(u.isAdmin) return;
-
       userList.innerHTML += `
         <tr>
           <td>${doc.id}</td>
@@ -170,19 +142,17 @@ function loadUsers(){
     });
   });
 }
-
 // 💾 SAVE
 function saveUser(id){
   db.collection("users").doc(id).update({
-    pseudo: document.getElementById(`p_${id}`).value,
-    maxScore: Number(document.getElementById(`s_${id}`).value),
-    skin: Number(document.getElementById(`k_${id}`).value),
-    niveauxDebloques: Number(document.getElementById(`n_${id}`).value)
+    pseudo: document.getElementById("p_" + id).value,
+    maxScore: Number(document.getElementById("s_" + id).value),
+    skin: Number(document.getElementById("k_" + id).value),
+    niveauxDebloques: Number(document.getElementById("n_" + id).value)
   })
   .then(() => alert("Sauvegardé"))
   .catch(e => alert(e.message));
 }
 </script>
-
 </body>
 </html>
