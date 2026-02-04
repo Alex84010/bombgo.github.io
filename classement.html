@@ -94,22 +94,14 @@
 
   // ==== Charger le classement ====
   function loadLeaderboard(){
-    db.collection("users").get().then(snapshot=>{
+    db.collection("scores").get().then(snapshot=>{
       let scores = [];
       snapshot.forEach(doc => {
-        const data = doc.data();
-        // Ignorer les admins
-        if (data.isAdmin) return;
-        
-        scores.push({
-          id: doc.id, 
-          pseudo: data.pseudo || 'player',
-          maxScore: data.maxScore || 0
-        });
+        scores.push({id:doc.id, ...doc.data()});
       });
 
-      // Trier par maxScore descendant
-      scores.sort((a,b) => b.maxScore - a.maxScore);
+      // Trier par score descendant
+      scores.sort((a,b)=>b.score - a.score);
 
       // Vider le tableau
       leaderboardBody.innerHTML="";
@@ -117,12 +109,12 @@
       // Ajouter chaque joueur
       scores.forEach((entry,index)=>{
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${index+1}</td><td>${entry.pseudo}</td><td>${entry.maxScore}</td>`;
-        if(entry.id === deviceId) tr.classList.add("highlight");
+        tr.innerHTML = `<td>${index+1}</td><td>${entry.pseudo}</td><td>${entry.score}</td>`;
+        if(entry.id===deviceId) tr.classList.add("highlight");
         leaderboardBody.appendChild(tr);
       });
 
-      if(scores.length === 0){
+      if(scores.length===0){
         leaderboardBody.innerHTML="<tr><td colspan='3'>Aucun score pour le moment.</td></tr>";
       }
     }).catch(err=>{
@@ -134,7 +126,7 @@
   loadLeaderboard();
 
   // Recharger toutes les 5 secondes pour voir les mises à jour en direct
-  setInterval(loadLeaderboard, 5000);
+  setInterval(loadLeaderboard,5000);
 </script>
 
 </body>
