@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="fr">
+
 <head>
   <meta charset="UTF-8">
   <title>Mes niveaux</title>
@@ -10,6 +11,7 @@
       font-family: Arial;
       text-align: center;
     }
+
     #liste {
       display: grid;
       grid-template-columns: repeat(auto-fill, 180px);
@@ -17,9 +19,12 @@
       justify-content: center;
       margin-top: 30px;
     }
+
     .niveau {
       cursor: pointer;
+      position: relative; /* nécessaire pour le menu */
     }
+
     .niveau img {
       width: 180px;
       height: 135px;
@@ -28,8 +33,61 @@
       object-fit: cover;
       background: #000;
     }
+
+    /* Style pour le menu à 3 points et popup */
+    .menu-points {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      cursor: pointer;
+      font-size: 20px;
+      user-select: none;
+      z-index: 5;
+    }
+
+    .popup-menu {
+      position: absolute;
+      top: 25px;
+      right: 5px;
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      border-radius: 5px;
+      padding: 5px;
+      display: none;
+      flex-direction: column;
+      gap: 3px;
+      z-index: 10;
+    }
+
+    .popup-menu button {
+      background: #333;
+      border: none;
+      color: white;
+      padding: 4px 8px;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+
+    .popup-menu button:hover {
+      background: #555;
+    }
+
+    /* Bouton global pour entrer un code */
+    #jouerCodeBtn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 15px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 5px;
+      background: #0077ff;
+      color: white;
+      border: none;
+    }
   </style>
 </head>
+
 <body>
   <img src="assets/logohome.png" alt="Home" style="cursor:pointer; width:105px; position: fixed; top: 10px; left: 10px;"
     onclick="window.location.href='./index.html'">
@@ -39,99 +97,112 @@
   <img src="assets/logorefresh.png" alt="Actualiser"
     style="cursor:pointer; width:105px; position: fixed; top: 10px; right: 10px;"
     onclick="window.location.reload()">
+
   <h1>Mes niveaux</h1>
   <div id="liste"></div>
+
+  <!-- Bouton pour entrer un code et jouer -->
+  <button id="jouerCodeBtn">Jouer avec un code</button>
+
   <script>
-const liste = document.getElementById("liste");
-let niveaux = JSON.parse(localStorage.getItem("mesNiveaux")) || [];
+    const liste = document.getElementById("liste");
+    let niveaux = JSON.parse(localStorage.getItem("mesNiveaux")) || [];
 
-console.log("Niveaux trouvés:", niveaux);
+    if (niveaux.length === 0) {
+      liste.innerHTML = "<p>Aucun niveau publié</p>";
+    } else {
+      niveaux.forEach((niveau, index) => {
+        const div = document.createElement("div");
+        div.className = "niveau";
 
-if (niveaux.length === 0) {
-  liste.innerHTML = "<p>Aucun niveau publié</p>";
-} else {
-  niveaux.forEach((niveau, index) => {
-    const div = document.createElement("div");
-    div.className = "niveau";
-    div.style.position = "relative"; // nécessaire pour le menu
+        // Image et nom
+        const img = document.createElement("img");
+        img.src = niveau.image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='135'%3E%3Crect fill='%23333' width='180' height='135'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='%23fff'%3EErreur%3C/text%3E%3C/svg%3E";
+        img.alt = niveau.nom;
 
-    // Image du niveau
-    const img = document.createElement("img");
-    img.src = niveau.image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='135'%3E%3Crect fill='%23333' width='180' height='135'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='%23fff'%3EErreur%3C/text%3E%3C/svg%3E";
-    img.alt = niveau.nom;
-    img.style.width = "180px";
-    img.style.height = "135px";
-    img.style.borderRadius = "10px";
-    img.style.objectFit = "cover";
+        const p = document.createElement("p");
+        p.textContent = niveau.nom;
 
-    // Nom du niveau
-    const p = document.createElement("p");
-    p.textContent = niveau.nom;
+        // Menu 3 points
+        const menuPoints = document.createElement("div");
+        menuPoints.className = "menu-points";
+        menuPoints.textContent = "⋮";
 
-    // Menu en haut à droite
-    const menu = document.createElement("div");
-    menu.style.position = "absolute";
-    menu.style.top = "5px";
-    menu.style.right = "5px";
-    menu.style.background = "rgba(0,0,0,0.6)";
-    menu.style.borderRadius = "5px";
-    menu.style.padding = "2px";
-    menu.style.display = "flex";
-    menu.style.gap = "2px";
+        // Popup menu
+        const popup = document.createElement("div");
+        popup.className = "popup-menu";
 
-    // Boutons Supprimer, Éditer, Partager
-    const btnSupprimer = document.createElement("button");
-    btnSupprimer.textContent = "🗑️";
-    btnSupprimer.title = "Supprimer";
-    btnSupprimer.style.cursor = "pointer";
-    btnSupprimer.onclick = (e) => {
-      e.stopPropagation(); // empêche de déclencher l'ouverture du niveau
-      if (confirm(`Supprimer le niveau "${niveau.nom}" ?`)) {
-        niveaux.splice(index, 1);
-        localStorage.setItem("mesNiveaux", JSON.stringify(niveaux));
-        div.remove();
+        const btnSupprimer = document.createElement("button");
+        btnSupprimer.textContent = "Supprimer";
+        btnSupprimer.onclick = (e) => {
+          e.stopPropagation();
+          if (confirm(`Supprimer le niveau "${niveau.nom}" ?`)) {
+            niveaux.splice(index, 1);
+            localStorage.setItem("mesNiveaux", JSON.stringify(niveaux));
+            div.remove();
+          }
+        };
+
+        const btnEditer = document.createElement("button");
+        btnEditer.textContent = "Éditer";
+        btnEditer.onclick = (e) => {
+          e.stopPropagation();
+          localStorage.setItem("niveauAEditer", index);
+          window.location.href = "editer.html";
+        };
+
+        const btnPartager = document.createElement("button");
+        btnPartager.textContent = "Partager";
+        btnPartager.onclick = (e) => {
+          e.stopPropagation();
+          const code = btoa(JSON.stringify(niveau));
+          prompt("Copiez ce code pour le partager :", code);
+        };
+
+        popup.appendChild(btnSupprimer);
+        popup.appendChild(btnEditer);
+        popup.appendChild(btnPartager);
+
+        // Afficher/masquer le popup
+        menuPoints.onclick = (e) => {
+          e.stopPropagation();
+          document.querySelectorAll(".popup-menu").forEach(p => p.style.display = "none"); // fermer les autres
+          popup.style.display = popup.style.display === "flex" ? "none" : "flex";
+        };
+
+        // Clic sur le niveau pour jouer
+        div.onclick = () => {
+          localStorage.setItem("niveauAJouer", index);
+          window.location.href = "jouer.html";
+        };
+
+        div.appendChild(img);
+        div.appendChild(p);
+        div.appendChild(menuPoints);
+        div.appendChild(popup);
+        liste.appendChild(div);
+      });
+    }
+
+    // Fermer popup si clic en dehors
+    document.addEventListener("click", () => {
+      document.querySelectorAll(".popup-menu").forEach(p => p.style.display = "none");
+    });
+
+    // Bouton pour entrer un code et jouer
+    const jouerCodeBtn = document.getElementById("jouerCodeBtn");
+    jouerCodeBtn.onclick = () => {
+      const code = prompt("Entrez le code du niveau :");
+      if (!code) return;
+      try {
+        const niveau = JSON.parse(atob(code));
+        localStorage.setItem("niveauPartage", JSON.stringify(niveau));
+        window.location.href = "jouer.html";
+      } catch (err) {
+        alert("Code invalide !");
       }
     };
-
-    const btnEditer = document.createElement("button");
-    btnEditer.textContent = "✏️";
-    btnEditer.title = "Éditer";
-    btnEditer.style.cursor = "pointer";
-    btnEditer.onclick = (e) => {
-      e.stopPropagation();
-      localStorage.setItem("niveauAEditer", index);
-      window.location.href = "editer.html";
-    };
-
-    const btnPartager = document.createElement("button");
-    btnPartager.textContent = "🔗";
-    btnPartager.title = "Partager";
-    btnPartager.style.cursor = "pointer";
-    btnPartager.onclick = (e) => {
-      e.stopPropagation();
-      const code = btoa(JSON.stringify(niveau)); // encode le niveau en base64
-      prompt("Copiez ce code pour le partager :", code);
-    };
-
-    menu.appendChild(btnSupprimer);
-    menu.appendChild(btnEditer);
-    menu.appendChild(btnPartager);
-
-    div.appendChild(img);
-    div.appendChild(p);
-    div.appendChild(menu);
-
-    div.onclick = () => {
-      localStorage.setItem("niveauAJouer", index);
-      window.location.href = "jouer.html";
-    };
-
-    liste.appendChild(div);
-  });
-}
   </script>
-  
 </body>
+
 </html>
-
-
