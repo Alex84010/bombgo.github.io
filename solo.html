@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Solo</title>
+  <title>Solo - BombGo</title>
   <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png">
   
   <!-- Phaser -->
@@ -39,7 +39,9 @@
   <div id="game-wrapper"></div>
 
 <script>
-  // ==== Firebase ====
+  // ========================================
+  // FIREBASE CONFIGURATION
+  // ========================================
   firebase.initializeApp({
     apiKey: "AIzaSyBnQb5b5h62Jl4WeiKEBMeEmivbOK-B70k",
     authDomain: "bombgo-classement.firebaseapp.com",
@@ -48,61 +50,74 @@
   });
   const db = firebase.firestore();
 
-  // ==== Device ID pour score unique ====
+  // ========================================
+  // USER DATA
+  // ========================================
   let deviceId = localStorage.getItem("deviceId");
-  if(!deviceId){ deviceId = crypto.randomUUID(); localStorage.setItem("deviceId", deviceId); }
+  if(!deviceId){ 
+    deviceId = crypto.randomUUID(); 
+    localStorage.setItem("deviceId", deviceId); 
+  }
 
   let playerNickname = localStorage.getItem("playerNickname") || "player";
+  let selectedSkin = parseInt(localStorage.getItem('selectedCharacter') || '1');
 
-  // ==== Synchronisation automatique des données utilisateur ====
-  async function syncUserData() {
+  console.log("🎮 Device ID:", deviceId);
+  console.log("👤 Pseudo:", playerNickname);
+  console.log("🎨 Skin:", selectedSkin);
+
+  // ========================================
+  // SYNCHRONISATION FIREBASE
+  // ========================================
+  let maxScoreEverReached = 0; // Score max atteint dans cette session
+  let maxLevelEverReached = 0; // Niveau max atteint dans cette session
+
+  // Fonction pour synchroniser les données
+  async function syncToFirebase() {
     try {
-      const docRef = db.collection("users").doc(deviceId);
-      const doc = await docRef.get();
+      const userRef = db.collection("users").doc(deviceId);
+      const doc = await userRef.get();
       
-      const currentData = {
-        pseudo: playerNickname,
-        skin: parseInt(localStorage.getItem("selectedCharacter") || "1"),
-        niveauxDebloques: currentLevel + 1
-      };
-      
-      if (!doc.exists) {
-        // Nouveau joueur : créer le document
-        await docRef.set({
-          ...currentData,
-          maxScore: score
-        });
-        console.log("✅ Nouveau joueur créé");
-      } else {
-        // Joueur existant : mettre à jour
-        const oldData = doc.data();
-        const updates = { ...currentData };
-        
-        // Mettre à jour le score seulement s'il est meilleur
-        if (score > (oldData.maxScore || 0)) {
-          updates.maxScore = score;
-        }
-        
-        await docRef.update(updates);
-        console.log("✅ Données mises à jour");
+      if (doc.exists) {
+        // Utilisateur existe : récupérer son meilleur score
+        const data = doc.data();
+        maxScoreEverReached = Math.max(maxScoreEverReached, data.maxScore || 0);
+        maxLevelEverReached = Math.max(maxLevelEverReached, data.niveauxDebloques || 0);
       }
+      
+      // Mettre à jour avec les données actuelles
+      await userRef.set({
+        pseudo: playerNickname,
+        maxScore: maxScoreEverReached,
+        skin: selectedSkin,
+        niveauxDebloques: maxLevelEverReached
+      }, { merge: true });
+      
+      console.log("✅ Sync Firebase OK - Score:", maxScoreEverReached, "Niveau:", maxLevelEverReached);
     } catch(err) {
-      console.error("❌ Erreur sync:", err);
+      console.error("❌ Erreur Firebase:", err);
     }
   }
 
-  // Initialiser les données dès le chargement
-  syncUserData();
-  // ==== Variables globales ====
+  // Sauvegarder quand on quitte la page
+  window.addEventListener('beforeunload', () => {
+    syncToFirebase();
+  });
+
+  // Synchroniser au chargement
+  syncToFirebase();
+
+  // ========================================
+  // PHASER GAME VARIABLES
+  // ========================================
   var player, cursors, stars, bombs, platforms;
   var score = 0, scoreText;
   var lives = 3, lifeIcons = [];
   var gameOver = false;
   var currentLevel = 0;
   var platformsArray = [];
-  var tremplin = null;
 
-  // ==== Layout des niveaux ====
+  // Layout des niveaux
   var platformLayouts = [
     [{x:600,y:400},{x:50,y:250},{x:750,y:220}],
     [{x:150,y:350},{x:400,y:200},{x:650,y:300},{x:400,y:470}],
@@ -116,16 +131,24 @@
     [{x:100,y:500},{x:300,y:350},{x:500,y:200},{x:700,y:100}]
   ];
 
-  // ==== Config Phaser ====
+  // ========================================
+  // PHASER CONFIG
+  // ========================================
   var config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    physics: { default: 'arcade', arcade: { gravity:{y:300}, debug:false } },
+    physics: { 
+      default: 'arcade', 
+      arcade: { gravity:{y:300}, debug:false } 
+    },
     scene: { preload, create, update }
   };
   new Phaser.Game(config);
 
+  // ========================================
+  // PHASER PRELOAD
+  // ========================================
   function preload(){
     this.load.image('sky','assets/sky.png');
     this.load.image('ground','assets/platform.png');
@@ -133,33 +156,68 @@
     this.load.image('bomb','assets/bombe.png');
     this.load.image('vie','assets/vie1.png');
     this.load.image('novie','assets/vie2.png');
-    this.load.image('tremplin','assets/tremplin.png');
-    const selectedChar = localStorage.getItem('selectedCharacter') || '1';
-    this.load.spritesheet('dude',`assets/personnageframe${selectedChar}.png`,{frameWidth:320, frameHeight:480});
+    this.load.spritesheet('dude',`assets/personnageframe${selectedSkin}.png`,{frameWidth:320, frameHeight:480});
   }
 
+  // ========================================
+  // PHASER CREATE
+  // ========================================
   function create(){
     this.add.image(400,300,'sky');
     scoreText = this.add.text(16,16,'Score: 0',{fontSize:'32px',fill:'#000'});
 
-    for(let i=0;i<lives;i++) lifeIcons.push(this.add.image(40+i*45,70,'vie').setScale(0.02));
+    // Icônes de vie
+    for(let i=0;i<lives;i++) {
+      lifeIcons.push(this.add.image(40+i*45,70,'vie').setScale(0.02));
+    }
 
+    // Plateformes
     platforms = this.physics.add.staticGroup();
     platforms.create(400,568,'ground').setScale(2).refreshBody();
     createPlatformsForLevel(currentLevel);
 
-    player = this.physics.add.sprite(100,450,'dude').setScale(0.125).setBounce(0.2).setCollideWorldBounds(true);
-    this.anims.create({key:'left', frames:this.anims.generateFrameNumbers('dude',{start:0,end:3}), frameRate:10, repeat:-1});
-    this.anims.create({key:'turn', frames:[{key:'dude',frame:4}], frameRate:20});
-    this.anims.create({key:'right', frames:this.anims.generateFrameNumbers('dude',{start:5,end:8}), frameRate:10, repeat:-1});
+    // Joueur
+    player = this.physics.add.sprite(100,450,'dude')
+      .setScale(0.125)
+      .setBounce(0.2)
+      .setCollideWorldBounds(true);
+    
+    // Animations
+    this.anims.create({
+      key:'left', 
+      frames:this.anims.generateFrameNumbers('dude',{start:0,end:3}), 
+      frameRate:10, 
+      repeat:-1
+    });
+    this.anims.create({
+      key:'turn', 
+      frames:[{key:'dude',frame:4}], 
+      frameRate:20
+    });
+    this.anims.create({
+      key:'right', 
+      frames:this.anims.generateFrameNumbers('dude',{start:5,end:8}), 
+      frameRate:10, 
+      repeat:-1
+    });
 
     cursors = this.input.keyboard.createCursorKeys();
 
-    stars = this.physics.add.group({key:'star', repeat:11, setXY:{x:12,y:0,stepX:70}});
-    stars.children.iterate(c => { c.setBounceY(Phaser.Math.FloatBetween(0.4,0.8)); c.setScale(0.015); });
+    // Étoiles
+    stars = this.physics.add.group({
+      key:'star', 
+      repeat:11, 
+      setXY:{x:12,y:0,stepX:70}
+    });
+    stars.children.iterate(c => { 
+      c.setBounceY(Phaser.Math.FloatBetween(0.4,0.8)); 
+      c.setScale(0.015); 
+    });
 
+    // Bombes
     bombs = this.physics.add.group();
 
+    // Collisions
     this.physics.add.collider(player, platforms);
     this.physics.add.collider(stars, platforms);
     this.physics.add.collider(bombs, platforms);
@@ -167,22 +225,53 @@
     this.physics.add.collider(player, bombs, hitBomb, null, this);
   }
 
+  // ========================================
+  // PHASER UPDATE
+  // ========================================
   function update(){
     if(gameOver) return;
-    if(cursors.left.isDown){ player.setVelocityX(-160); player.anims.play('left',true);}
-    else if(cursors.right.isDown){ player.setVelocityX(160); player.anims.play('right',true);}
-    else { player.setVelocityX(0); player.anims.play('turn'); }
-    if(cursors.up.isDown && player.body.touching.down) player.setVelocityY(-330);
+    
+    if(cursors.left.isDown){ 
+      player.setVelocityX(-160); 
+      player.anims.play('left',true);
+    }
+    else if(cursors.right.isDown){ 
+      player.setVelocityX(160); 
+      player.anims.play('right',true);
+    }
+    else { 
+      player.setVelocityX(0); 
+      player.anims.play('turn'); 
+    }
+    
+    if(cursors.up.isDown && player.body.touching.down) {
+      player.setVelocityY(-330);
+    }
   }
 
+  // ========================================
+  // COLLECT STAR
+  // ========================================
   function collectStar(player, star){
     star.disableBody(true,true);
     score += 10;
     scoreText.setText('Score: '+score);
+    
+    // Mettre à jour le max score si nécessaire
+    if(score > maxScoreEverReached) {
+      maxScoreEverReached = score;
+      console.log("🏆 Nouveau record:", maxScoreEverReached);
+    }
+    
+    // Toutes les étoiles collectées = nouveau niveau
     if(stars.countActive(true)===0){
       changeLevel();
+      
+      // Réapparaître les étoiles
       stars.children.iterate(c => c.enableBody(true,c.x,0,true,true));
-      let x = (player.x<400)?Phaser.Math.Between(400,800):Phaser.Math.Between(0,400);
+      
+      // Créer une bombe
+      let x = (player.x<400) ? Phaser.Math.Between(400,800) : Phaser.Math.Between(0,400);
       let bomb = bombs.create(x,16,'bomb').setScale(0.015);
       bomb.body.setSize(bomb.width*0.015, bomb.height*0.015);
       bomb.body.setOffset(bomb.width*0.015, bomb.height*0.015);
@@ -190,28 +279,56 @@
     }
   }
 
+  // ========================================
+  // HIT BOMB
+  // ========================================
   function hitBomb(player, bomb){
     bomb.disableBody(true,true);
     lives--;
-    if(lives>=0) lifeIcons[lives].setTexture('novie').setScale(0.02);
+    
+    if(lives>=0) {
+      lifeIcons[lives].setTexture('novie').setScale(0.02);
+    }
+    
     if(lives<=0 && !gameOver){
       gameOver=true;
       this.physics.pause();
-      player.setTint(0xff0000); player.anims.play('turn');
-      syncUserData(); // Sauvegarder à la fin de la partie
+      player.setTint(0xff0000); 
+      player.anims.play('turn');
+      
+      console.log("💀 Game Over - Score final:", score);
+      
+      // Synchroniser le score final
+      syncToFirebase();
     }
   }
 
+  // ========================================
+  // CREATE PLATFORMS
+  // ========================================
   function createPlatformsForLevel(level){
     platformsArray.forEach(p=>p.destroy());
     platformsArray=[];
-    platformLayouts[level].forEach(pos=>platformsArray.push(platforms.create(pos.x,pos.y,'ground')));
+    platformLayouts[level].forEach(pos => {
+      platformsArray.push(platforms.create(pos.x,pos.y,'ground'));
+    });
   }
 
+  // ========================================
+  // CHANGE LEVEL
+  // ========================================
   function changeLevel(){
-    currentLevel = (currentLevel+1)%platformLayouts.length;
+    currentLevel = (currentLevel+1) % platformLayouts.length;
     createPlatformsForLevel(currentLevel);
-    syncUserData(); // Synchroniser à chaque changement de niveau
+    
+    // Mettre à jour le niveau max
+    if(currentLevel + 1 > maxLevelEverReached) {
+      maxLevelEverReached = currentLevel + 1;
+      console.log("🎯 Nouveau niveau débloqué:", maxLevelEverReached);
+      
+      // Synchroniser immédiatement le nouveau niveau
+      syncToFirebase();
+    }
   }
 
 </script>
