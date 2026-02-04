@@ -6,6 +6,10 @@
   <title>Parametre</title>
   <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png">
 
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
   <style>
     body {
       background: #333;
@@ -139,6 +143,22 @@
   <button class="save-button" onclick="saveAndReturn()">Valider</button>
 
   <script>
+    // Firebase init
+    firebase.initializeApp({
+      apiKey: "AIzaSyBnQb5b5h62Jl4WeiKEBMeEmivbOK-B70k",
+      authDomain: "bombgo-classement.firebaseapp.com",
+      projectId: "bombgo-classement",
+      appId: "1:113313571513:web:73863b02df8193606ef168"
+    });
+    const db = firebase.firestore();
+
+    // Device ID
+    let deviceId = localStorage.getItem("deviceId");
+    if(!deviceId){ 
+      deviceId = crypto.randomUUID(); 
+      localStorage.setItem("deviceId", deviceId); 
+    }
+
     const numberOfCharacter = 4;
     let selectedCharacter = 1;
     let playerNickname = 'player';
@@ -185,6 +205,35 @@
       });
     }
 
+    // Fonction pour synchroniser avec Firebase
+    async function syncToFirebase(nickname, skin) {
+      try {
+        const userRef = db.collection("users").doc(deviceId);
+        const doc = await userRef.get();
+        
+        const updates = {
+          pseudo: nickname,
+          skin: skin
+        };
+        
+        if (!doc.exists) {
+          // Nouveau joueur : créer avec valeurs par défaut
+          await userRef.set({
+            ...updates,
+            maxScore: 0,
+            niveauxDebloques: 0
+          });
+          console.log("✅ Nouveau joueur créé");
+        } else {
+          // Joueur existant : mettre à jour uniquement pseudo et skin
+          await userRef.update(updates);
+          console.log("✅ Paramètres mis à jour");
+        }
+      } catch(err) {
+        console.error("❌ Erreur Firebase:", err);
+      }
+    }
+
     function saveAndReturn() {
       // Récupérer le pseudo de l'input
       const nicknameValue = document.getElementById('nicknameInput').value.trim();
@@ -192,11 +241,17 @@
       // Si le pseudo est vide, utiliser "player" par défaut
       const finalNickname = nicknameValue === '' ? 'player' : nicknameValue;
       
-      // Sauvegarder le pseudo et le personnage
+      // Sauvegarder le pseudo et le personnage dans localStorage
       localStorage.setItem('playerNickname', finalNickname);
       localStorage.setItem('selectedCharacter', selectedCharacter);
       
-      window.location.href = './index.html';
+      // Synchroniser avec Firebase
+      syncToFirebase(finalNickname, selectedCharacter);
+      
+      // Retourner à l'accueil après un court délai
+      setTimeout(() => {
+        window.location.href = './index.html';
+      }, 300);
     }
 
     // Permettre de valider en appuyant sur Entrée dans l'input
@@ -209,4 +264,3 @@
 
 </body>
 </html>
-
