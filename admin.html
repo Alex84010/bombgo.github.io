@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Admin Panel</title>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<style>
+body {
+  background: #222;
+  color: white;
+  font-family: Arial;
+  margin: 20px;
+}
+input, button {
+  padding: 6px;
+  margin: 4px;
+}
+table {
+  border-collapse: collapse;
+  margin-top: 20px;
+  width: 100%;
+}
+td, th {
+  border: 1px solid #555;
+  padding: 6px;
+  text-align: center;
+}
+button {
+  cursor: pointer;
+}
+.hidden {
+  display: none;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🔐 PANEL ADMIN</h1>
+
+<!-- LOGIN -->
+<div id="login">
+  <input id="email" placeholder="email admin">
+  <input id="password" type="password" placeholder="mot de passe">
+  <button onclick="login()">Connexion</button>
+</div>
+
+<!-- ADMIN -->
+<div id="admin" class="hidden">
+  <button onclick="logout()">Déconnexion</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>UID</th>
+        <th>Pseudo</th>
+        <th>Score max</th>
+        <th>Skin</th>
+        <th>Niveaux</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="users"></tbody>
+  </table>
+</div>
+
+<script>
+// 🔥 CONFIG FIREBASE (GARDES LA TIENNE)
+firebase.initializeApp({
+  apiKey: "AIzaSyBnQb5b5h62Jl4WeiKEBMeEmivbOK-B70k",
+  authDomain: "bombgo-classement.firebaseapp.com",
+  projectId: "bombgo-classement",
+  appId: "1:113313571513:web:73863b02df8193606ef168"
+});
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// 🔐 LOGIN
+function login(){
+  auth.signInWithEmailAndPassword(
+    email.value,
+    password.value
+  ).catch(e => alert(e.message));
+}
+
+// 🔓 LOGOUT
+function logout(){
+  auth.signOut();
+}
+
+// 🔎 AUTH CHECK
+auth.onAuthStateChanged(async user => {
+
+  if(!user){
+    login.classList.remove("hidden");
+    admin.classList.add("hidden");
+    return;
+  }
+
+  const doc = await db.collection("users").doc(user.uid).get();
+
+  if(!doc.exists || doc.data().isAdmin !== true){
+    alert("Accès refusé");
+    auth.signOut();
+    return;
+  }
+
+  // ✅ ADMIN OK
+  login.classList.add("hidden");
+  admin.classList.remove("hidden");
+  loadUsers();
+});
+
+// 📋 LOAD USERS
+function loadUsers(){
+  db.collection("users").onSnapshot(snap => {
+    users.innerHTML = "";
+
+    snap.forEach(doc => {
+      const u = doc.data();
+
+      if(u.isAdmin) return; // cacher l'admin
+
+      users.innerHTML += `
+        <tr>
+          <td>${doc.id}</td>
+          <td><input id="p_${doc.id}" value="${u.pseudo || ''}"></td>
+          <td><input id="s_${doc.id}" value="${u.maxScore || 0}"></td>
+          <td><input id="k_${doc.id}" value="${u.skin || 1}"></td>
+          <td><input id="n_${doc.id}" value="${u.niveauxDebloques || 0}"></td>
+          <td>
+            <button onclick="save('${doc.id}')">💾</button>
+          </td>
+        </tr>
+      `;
+    });
+  });
+}
+
+// 💾 SAVE
+function save(id){
+  db.collection("users").doc(id).update({
+    pseudo: p_${id}.value,
+    maxScore: Number(s_${id}.value),
+    skin: Number(k_${id}.value),
+    niveauxDebloques: Number(n_${id}.value)
+  });
+}
+</script>
+
+</body>
+</html>
