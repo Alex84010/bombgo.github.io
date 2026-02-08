@@ -275,11 +275,18 @@
 
       // Vérifier s'il y a un niveau à éditer
       const indexAEditer = localStorage.getItem("niveauAEditer");
-      if (indexAEditer !== null) {
+      console.log("Index récupéré:", indexAEditer);
+      
+      if (indexAEditer !== null && indexAEditer !== "") {
         const niveaux = JSON.parse(localStorage.getItem("mesNiveaux")) || [];
-        const niveau = niveaux[JSON.parse(indexAEditer)];
+        console.log("Tous les niveaux:", niveaux);
+        
+        const niveau = niveaux[parseInt(indexAEditer)];
+        console.log("Niveau à charger:", niveau);
         
         if (niveau && niveau.data) {
+          console.log("Chargement du niveau:", niveau.nom);
+          
           // Charger les paramètres
           document.getElementById('survivalTime').value = niveau.data.params.survivalTime;
           document.getElementById('halfLives').value = niveau.data.params.halfLives;
@@ -300,21 +307,25 @@
           });
           
           // Charger les tremplins
-          niveau.data.trampolines.forEach(t => {
-            let tramp = this.add.image(t.x, t.y, 'tremplin').setScale(0.04);
-            tramp.setInteractive({ draggable: true });
-            tramp.setData('type', 'trampoline');
-            trampolines.push(tramp);
-          });
+          if (niveau.data.trampolines) {
+            niveau.data.trampolines.forEach(t => {
+              let tramp = this.add.image(t.x, t.y, 'tremplin').setScale(0.04);
+              tramp.setInteractive({ draggable: true });
+              tramp.setData('type', 'trampoline');
+              trampolines.push(tramp);
+            });
+          }
           
           // Nettoyer le localStorage
           localStorage.removeItem("niveauAEditer");
+          console.log("Niveau chargé avec succès !");
         } else {
-          // Créer la plateforme par défaut si pas de niveau
+          console.log("Pas de niveau trouvé, création par défaut");
           createDefaultGround(this);
+          localStorage.removeItem("niveauAEditer");
         }
       } else {
-        // Créer la plateforme par défaut
+        console.log("Pas d'index à éditer, création par défaut");
         createDefaultGround(this);
       }
 
