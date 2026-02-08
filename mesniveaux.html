@@ -71,20 +71,6 @@
     .popup-menu button:hover {
       background: #555;
     }
-
-    /* Bouton global pour entrer un code */
-    #jouerCodeBtn {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      padding: 10px 15px;
-      font-size: 16px;
-      cursor: pointer;
-      border-radius: 5px;
-      background: #0077ff;
-      color: white;
-      border: none;
-    }
   </style>
 </head>
 
@@ -100,9 +86,6 @@
 
   <h1>Mes niveaux</h1>
   <div id="liste"></div>
-
-  <!-- Bouton pour entrer un code et jouer -->
-  <button id="jouerCodeBtn">Jouer avec un code</button>
 
   <script>
     const liste = document.getElementById("liste");
@@ -139,7 +122,7 @@
           if (confirm(`Supprimer le niveau "${niveau.nom}" ?`)) {
             niveaux.splice(index, 1);
             localStorage.setItem("mesNiveaux", JSON.stringify(niveaux));
-            div.remove();
+            location.reload(); // Recharger la page pour mettre à jour
           }
         };
 
@@ -147,21 +130,13 @@
         btnEditer.textContent = "Éditer";
         btnEditer.onclick = (e) => {
           e.stopPropagation();
-          localStorage.setItem("niveauAEditer", index);
+          // Sauvegarder l'index actuel du niveau à éditer
+          localStorage.setItem("niveauAEditer", JSON.stringify(index));
           window.location.href = "editeur.html";
-        };
-
-        const btnPartager = document.createElement("button");
-        btnPartager.textContent = "Partager";
-        btnPartager.onclick = (e) => {
-          e.stopPropagation();
-          const code = btoa(JSON.stringify(niveau));
-          prompt("Copiez ce code pour le partager :", code);
         };
 
         popup.appendChild(btnSupprimer);
         popup.appendChild(btnEditer);
-        popup.appendChild(btnPartager);
 
         // Afficher/masquer le popup
         menuPoints.onclick = (e) => {
@@ -172,7 +147,7 @@
 
         // Clic sur le niveau pour jouer
         div.onclick = () => {
-          localStorage.setItem("niveauAJouer", index);
+          localStorage.setItem("niveauAJouer", JSON.stringify(index));
           window.location.href = "jouer.html";
         };
 
@@ -188,22 +163,7 @@
     document.addEventListener("click", () => {
       document.querySelectorAll(".popup-menu").forEach(p => p.style.display = "none");
     });
-
-    // Bouton pour entrer un code et jouer
-    const jouerCodeBtn = document.getElementById("jouerCodeBtn");
-    jouerCodeBtn.onclick = () => {
-      const code = prompt("Entrez le code du niveau :");
-      if (!code) return;
-      try {
-        const niveau = JSON.parse(atob(code));
-        localStorage.setItem("niveauPartage", JSON.stringify(niveau));
-        window.location.href = "jouer.html";
-      } catch (err) {
-        alert("Code invalide !");
-      }
-    };
   </script>
 </body>
 
 </html>
-
