@@ -6,7 +6,7 @@
   <title>Mes niveaux</title>
   <style>
     body {
-      background: #222;
+      background: #333;
       color: white;
       font-family: Arial;
       text-align: center;
@@ -126,20 +126,7 @@
           }
         };
 
-        const btnEditer = document.createElement("button");
-        btnEditer.textContent = "Éditer";
-        btnEditer.onclick = (e) => {
-          e.stopPropagation();
-          console.log("Index à éditer:", index);
-          console.log("Niveau:", niveau);
-          // Sauvegarder l'index actuel du niveau à éditer
-          localStorage.setItem("niveauAEditer", index.toString());
-          console.log("Sauvegardé dans localStorage:", localStorage.getItem("niveauAEditer"));
-          window.location.href = "editeur.html";
-        };
-
         popup.appendChild(btnSupprimer);
-        popup.appendChild(btnEditer);
 
         // Afficher/masquer le popup
         menuPoints.onclick = (e) => {
