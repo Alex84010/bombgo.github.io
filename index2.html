@@ -53,26 +53,28 @@
   cursor: pointer;
 }
 
-    .personnage-hobby img {
-      width: 20%;
-      min-width: 80px;
-      position: fixed;
-      user-select: none;
-      pointer-events: none;
-      z-index: 10;
-      left: 10%;
-    }
+.personnage-hobby img {
+  width: 18%;        /* un peu plus petit que 20% */
+  min-width: 80px;
+  position: fixed;
+  user-select: none;
+  pointer-events: none;
+  z-index: 10;
+  left: 15%;         /* un peu moins à gauche */
+  top: 50%;          /* si tu veux centré verticalement */
+  transform: translateY(-50%);
+}
 
-    .platforme-hobby img {
-      width: 25%;
-      min-width: 150px;
-      position: fixed;
-      bottom: 140px;
-      right: 60px;
-      cursor: pointer;
-      z-index: 5;
-      left: 10%;
-    }
+.platforme-hobby img {
+  width: 22%;        /* un peu plus petit que 25% */
+  min-width: 150px;
+  position: fixed;
+  bottom: 140px;
+  left: 15%;         /* au lieu de right, pour être cohérent */
+  cursor: pointer;
+  z-index: 5;
+}
+
   </style>
 </head>
 
