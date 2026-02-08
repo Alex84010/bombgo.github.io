@@ -152,13 +152,13 @@
 
 <body>
 
-  <img src="assets/logohome.png" alt="Home" style="cursor:pointer; width:105px; position: fixed; top: 10px; left: 10px;"
+  <img src="assets/logohome.png" alt="Home" style="cursor:pointer; width:105px; position: fixed; top: 10px; left: 10px; z-index: 1000;"
     onclick="window.location.href='./index.html'">
   <img src="assets/logoretour.png" alt="Retour"
-    style="cursor:pointer; width:105px; position: fixed; top: 10px; left: 125px;"
-    onclick="window.location.href='./index.html'">
+    style="cursor:pointer; width:105px; position: fixed; top: 10px; left: 125px; z-index: 1000;"
+    onclick="window.location.href='./mesniveaux.html'">
   <img src="assets/logorefresh.png" alt="Actualiser"
-    style="cursor:pointer; width:105px; position: fixed; top: 10px; right: 10px;"
+    style="cursor:pointer; width:105px; position: fixed; top: 10px; right: 10px; z-index: 1000;"
     onclick="window.location.href='./editeur.html'">
 
   <div class="sidebar">
@@ -214,26 +214,25 @@
   <div class="game-container" id="gameContainer"></div>
 
   <script>
-let config = {
-  type: Phaser.AUTO,
-  width: 800,
-  height: 600,
-  parent: 'gameContainer',
-  // AJOUTE CETTE LIGNE ICI :
-  preserveDrawingBuffer: true, 
-  physics: {
-    default: 'arcade',
-    arcade: {
-      gravity: { y: 0 },
-      debug: false
-    }
-  },
-  scene: {
-    preload: preload,
-    create: create,
-    update: update
-  }
-};
+    let config = {
+      type: Phaser.AUTO,
+      width: 800,
+      height: 600,
+      parent: 'gameContainer',
+      preserveDrawingBuffer: true,
+      physics: {
+        default: 'arcade',
+        arcade: {
+          gravity: { y: 0 },
+          debug: false
+        }
+      },
+      scene: {
+        preload: preload,
+        create: create,
+        update: update
+      }
+    };
 
     let game = new Phaser.Game(config);
     let currentTool = 'platform';
@@ -255,7 +254,6 @@ let config = {
     }
 
     function preload() {
-      // Charger les vraies images
       this.load.image('sky', 'assets/sky.png');
       this.load.image('ground', 'assets/platform.png');
       this.load.image('tremplin', 'assets/tremplin.png');
@@ -275,21 +273,65 @@ let config = {
         padding: { x: 10, y: 5 }
       }).setOrigin(0.5).setDepth(1000);
 
-      // Plateforme du sol par défaut
-      let ground = this.add.image(400, 568, 'ground').setScale(2);
-      ground.setInteractive({ draggable: true });
-      ground.setData('type', 'platform');
-      ground.setData('scaleX', 2);
-      ground.setData('scaleY', 1);
-      platforms.push(ground);
+      // Vérifier s'il y a un niveau à éditer
+      const indexAEditer = localStorage.getItem("niveauAEditer");
+      if (indexAEditer !== null) {
+        const niveaux = JSON.parse(localStorage.getItem("mesNiveaux")) || [];
+        const niveau = niveaux[JSON.parse(indexAEditer)];
+        
+        if (niveau && niveau.data) {
+          // Charger les paramètres
+          document.getElementById('survivalTime').value = niveau.data.params.survivalTime;
+          document.getElementById('halfLives').value = niveau.data.params.halfLives;
+          document.getElementById('initialBombs').value = niveau.data.params.initialBombs;
+          document.getElementById('bombSpawnInterval').value = niveau.data.params.bombSpawnInterval;
+          
+          // Charger les plateformes
+          niveau.data.platforms.forEach(p => {
+            let plat = this.add.image(p.x, p.y, 'ground').setScale(p.scaleX, p.scaleY);
+            plat.setInteractive({ draggable: true });
+            plat.setData('type', 'platform');
+            plat.setData('scaleX', p.scaleX);
+            plat.setData('scaleY', p.scaleY);
+            if (p.scaleX !== 2 || p.scaleY !== 1) {
+              plat.setTint(0xaaffaa);
+            }
+            platforms.push(plat);
+          });
+          
+          // Charger les tremplins
+          niveau.data.trampolines.forEach(t => {
+            let tramp = this.add.image(t.x, t.y, 'tremplin').setScale(0.04);
+            tramp.setInteractive({ draggable: true });
+            tramp.setData('type', 'trampoline');
+            trampolines.push(tramp);
+          });
+          
+          // Nettoyer le localStorage
+          localStorage.removeItem("niveauAEditer");
+        } else {
+          // Créer la plateforme par défaut si pas de niveau
+          createDefaultGround(this);
+        }
+      } else {
+        // Créer la plateforme par défaut
+        createDefaultGround(this);
+      }
+
+      function createDefaultGround(scene) {
+        let ground = scene.add.image(400, 568, 'ground').setScale(2);
+        ground.setInteractive({ draggable: true });
+        ground.setData('type', 'platform');
+        ground.setData('scaleX', 2);
+        ground.setData('scaleY', 1);
+        platforms.push(ground);
+      }
 
       // Gestion des clics
       this.input.on('pointerdown', (pointer) => {
-        // Vérifier si on a cliqué sur un objet
         let hitObjects = this.input.hitTestPointer(pointer);
 
         if (hitObjects.length === 0 || (hitObjects.length === 1 && hitObjects[0].texture.key === 'sky')) {
-          // Clic sur zone vide
           if (currentTool === 'platform') {
             createPlatform(this, pointer.x, pointer.y);
           } else if (currentTool === 'trampoline') {
@@ -298,14 +340,12 @@ let config = {
         }
       });
 
-      // Gestion du clic sur objet
       this.input.on('gameobjectdown', (pointer, gameObject) => {
         if (currentTool === 'delete' && gameObject.getData('type')) {
           deleteObject(gameObject);
         }
       });
 
-      // Mise à jour de la position pendant le drag
       this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
         gameObject.x = dragX;
         gameObject.y = dragY;
@@ -348,7 +388,6 @@ let config = {
         platforms = [];
         trampolines = [];
 
-        // Recréer la plateforme du sol
         if (scene) {
           let ground = scene.add.image(400, 568, 'ground').setScale(2);
           ground.setInteractive({ draggable: true });
@@ -422,7 +461,6 @@ this.time.addEvent({
   }
 });`;
 
-      // Afficher le code dans une fenêtre modale
       const overlay = document.createElement('div');
       overlay.style.cssText = `
         position: fixed;
@@ -496,54 +534,46 @@ this.time.addEvent({
       alert('Pour tester votre niveau :\n\n1. Cliquez sur "Exporter le Code"\n2. Copiez le code généré\n3. Collez-le dans votre fichier HTML\n4. Ouvrez le fichier dans votre navigateur');
     }
 
-/* =====================================
-   PUBLICATION DU NIVEAU (VERSION SNAPSHOT)
-===================================== */
-document.getElementById("publishBtn").addEventListener("click", () => {
-    const nom = prompt("Nom du niveau ?");
-    if (!nom) return;
+    document.getElementById("publishBtn").addEventListener("click", () => {
+      const nom = prompt("Nom du niveau ?");
+      if (!nom) return;
 
-    // On demande à Phaser de prendre une capture d'écran du canvas
-    game.renderer.snapshot((image) => {
-        // 'image' est un élément <img> généré par Phaser
-        const imageData = image.src; 
+      game.renderer.snapshot((image) => {
+        const imageData = image.src;
 
-        // Paramètres du niveau
         const niveauData = {
-            params: {
-                survivalTime: Number(document.getElementById('survivalTime').value),
-                halfLives: Number(document.getElementById('halfLives').value),
-                initialBombs: Number(document.getElementById('initialBombs').value),
-                bombSpawnInterval: Number(document.getElementById('bombSpawnInterval').value)
-            },
-            platforms: platforms.map(p => ({
-                x: p.x,
-                y: p.y,
-                scaleX: p.getData('scaleX') || p.scaleX,
-                scaleY: p.getData('scaleY') || p.scaleY
-            })),
-            trampolines: trampolines.map(t => ({
-                x: t.x,
-                y: t.y
-            }))
+          params: {
+            survivalTime: Number(document.getElementById('survivalTime').value),
+            halfLives: Number(document.getElementById('halfLives').value),
+            initialBombs: Number(document.getElementById('initialBombs').value),
+            bombSpawnInterval: Number(document.getElementById('bombSpawnInterval').value)
+          },
+          platforms: platforms.map(p => ({
+            x: p.x,
+            y: p.y,
+            scaleX: p.getData('scaleX') || p.scaleX,
+            scaleY: p.getData('scaleY') || p.scaleY
+          })),
+          trampolines: trampolines.map(t => ({
+            x: t.x,
+            y: t.y
+          }))
         };
 
         const niveaux = JSON.parse(localStorage.getItem("mesNiveaux")) || [];
 
         niveaux.push({
-            nom: nom,
-            image: imageData, // Ici on utilise les données du snapshot
-            data: niveauData
+          nom: nom,
+          image: imageData,
+          data: niveauData
         });
 
         localStorage.setItem("mesNiveaux", JSON.stringify(niveaux));
-        
+
         alert("✅ Niveau publié avec succès !");
+      });
     });
-});
   </script>
 </body>
 
 </html>
-
-
