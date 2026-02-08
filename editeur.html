@@ -239,6 +239,8 @@
     let platforms = [];
     let trampolines = [];
     let scene;
+    let isEditMode = false; // Mode édition ou création
+    let editingIndex = -1; // Index du niveau en cours d'édition
 
     // Gestion des outils
     document.getElementById('platformTool').addEventListener('click', () => setTool('platform'));
@@ -286,6 +288,13 @@
         
         if (niveau && niveau.data) {
           console.log("Chargement du niveau:", niveau.nom);
+          
+          // Activer le mode édition
+          isEditMode = true;
+          editingIndex = parseInt(indexAEditer);
+          
+          // Changer le texte du bouton
+          document.getElementById('publishBtn').textContent = '💾 Sauvegarder les modifications';
           
           // Charger les paramètres
           document.getElementById('survivalTime').value = niveau.data.params.survivalTime;
@@ -546,43 +555,85 @@ this.time.addEvent({
     }
 
     document.getElementById("publishBtn").addEventListener("click", () => {
-      const nom = prompt("Nom du niveau ?");
-      if (!nom) return;
+      if (isEditMode) {
+        // Mode édition : modifier le niveau existant
+        game.renderer.snapshot((image) => {
+          const imageData = image.src;
 
-      game.renderer.snapshot((image) => {
-        const imageData = image.src;
+          const niveauData = {
+            params: {
+              survivalTime: Number(document.getElementById('survivalTime').value),
+              halfLives: Number(document.getElementById('halfLives').value),
+              initialBombs: Number(document.getElementById('initialBombs').value),
+              bombSpawnInterval: Number(document.getElementById('bombSpawnInterval').value)
+            },
+            platforms: platforms.map(p => ({
+              x: p.x,
+              y: p.y,
+              scaleX: p.getData('scaleX') || p.scaleX,
+              scaleY: p.getData('scaleY') || p.scaleY
+            })),
+            trampolines: trampolines.map(t => ({
+              x: t.x,
+              y: t.y
+            }))
+          };
 
-        const niveauData = {
-          params: {
-            survivalTime: Number(document.getElementById('survivalTime').value),
-            halfLives: Number(document.getElementById('halfLives').value),
-            initialBombs: Number(document.getElementById('initialBombs').value),
-            bombSpawnInterval: Number(document.getElementById('bombSpawnInterval').value)
-          },
-          platforms: platforms.map(p => ({
-            x: p.x,
-            y: p.y,
-            scaleX: p.getData('scaleX') || p.scaleX,
-            scaleY: p.getData('scaleY') || p.scaleY
-          })),
-          trampolines: trampolines.map(t => ({
-            x: t.x,
-            y: t.y
-          }))
-        };
+          const niveaux = JSON.parse(localStorage.getItem("mesNiveaux")) || [];
+          
+          // Remplacer le niveau à l'index spécifié
+          niveaux[editingIndex] = {
+            nom: niveaux[editingIndex].nom, // Garder le même nom
+            image: imageData,
+            data: niveauData
+          };
 
-        const niveaux = JSON.parse(localStorage.getItem("mesNiveaux")) || [];
+          localStorage.setItem("mesNiveaux", JSON.stringify(niveaux));
 
-        niveaux.push({
-          nom: nom,
-          image: imageData,
-          data: niveauData
+          alert("✅ Niveau modifié avec succès !");
+          window.location.href = "mesniveaux.html";
         });
+      } else {
+        // Mode création : ajouter un nouveau niveau
+        const nom = prompt("Nom du niveau ?");
+        if (!nom) return;
 
-        localStorage.setItem("mesNiveaux", JSON.stringify(niveaux));
+        game.renderer.snapshot((image) => {
+          const imageData = image.src;
 
-        alert("✅ Niveau publié avec succès !");
-      });
+          const niveauData = {
+            params: {
+              survivalTime: Number(document.getElementById('survivalTime').value),
+              halfLives: Number(document.getElementById('halfLives').value),
+              initialBombs: Number(document.getElementById('initialBombs').value),
+              bombSpawnInterval: Number(document.getElementById('bombSpawnInterval').value)
+            },
+            platforms: platforms.map(p => ({
+              x: p.x,
+              y: p.y,
+              scaleX: p.getData('scaleX') || p.scaleX,
+              scaleY: p.getData('scaleY') || p.scaleY
+            })),
+            trampolines: trampolines.map(t => ({
+              x: t.x,
+              y: t.y
+            }))
+          };
+
+          const niveaux = JSON.parse(localStorage.getItem("mesNiveaux")) || [];
+
+          niveaux.push({
+            nom: nom,
+            image: imageData,
+            data: niveauData
+          });
+
+          localStorage.setItem("mesNiveaux", JSON.stringify(niveaux));
+
+          alert("✅ Niveau publié avec succès !");
+          window.location.href = "mesniveaux.html";
+        });
+      }
     });
   </script>
 </body>
