@@ -130,8 +130,11 @@
         btnEditer.textContent = "Éditer";
         btnEditer.onclick = (e) => {
           e.stopPropagation();
+          console.log("Index à éditer:", index);
+          console.log("Niveau:", niveau);
           // Sauvegarder l'index actuel du niveau à éditer
-          localStorage.setItem("niveauAEditer", JSON.stringify(index));
+          localStorage.setItem("niveauAEditer", index.toString());
+          console.log("Sauvegardé dans localStorage:", localStorage.getItem("niveauAEditer"));
           window.location.href = "editeur.html";
         };
 
