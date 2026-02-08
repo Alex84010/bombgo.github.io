@@ -11,33 +11,31 @@
       background: #333;
       color: white;
       font-family: Arial;
-      text-align: center;
+      text-align: left;
       overflow: hidden;
       margin: 0;
       padding: 0;
     }
 
     .titlemenu {
-      font-size: 72px;
+      font-size: 80px;
       font-weight: bold;
-      margin-top: 20px;
-      margin-bottom: 0;
-      letter-spacing: 2px;
+      margin: 20px 0 0 50px;
+      letter-spacing: 3px;
     }
 
     .left-buttons {
       position: fixed;
       left: 20px;
-      top: 50%;
-      transform: translateY(-50%);
+      top: 200px;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 15px;
     }
 
     .left-buttons img {
-      width: 80px;
-      height: 80px;
+      width: 70px;
+      height: 70px;
       cursor: pointer;
     }
 
@@ -48,20 +46,20 @@
     }
 
     .top-right-button img {
-      width: 80px;
-      height: 80px;
+      width: 70px;
+      height: 70px;
       cursor: pointer;
     }
 
-    .buttonmenu {
-      margin-top: 80px;
+    .solo-button {
+      position: fixed;
+      bottom: 150px;
+      left: 50px;
     }
 
-    .buttonmenu img {
+    .solo-button img {
+      width: 400px;
       cursor: pointer;
-      height: 100px;
-      display: block;
-      margin: 15px auto;
     }
 
     .personnage-hobby img {
@@ -87,7 +85,10 @@
 
 <body>
 
-  <!-- Boutons à gauche (paramètres, classement, refresh) -->
+  <!-- Titre NIVEAUX en haut à gauche -->
+  <h1 class="titlemenu">NIVEAUX</h1>
+
+  <!-- 3 boutons à gauche (paramètres, classement, refresh) -->
   <div class="left-buttons">
     <img src="assets/logoparametre.png" onclick="window.location.href='./parametre.html'" title="Paramètres">
     <img src="assets/logoclassement.png" onclick="window.location.href='./classement.html'" title="Classement">
@@ -99,12 +100,12 @@
     <img src="assets/logoparametre.png" onclick="window.location.href='./parametre.html'" title="Paramètres">
   </div>
 
-  <h1 class="titlemenu">NIVEAUX</h1>
-
-  <div class="buttonmenu">
+  <!-- Bouton SOLO en bas à gauche -->
+  <div class="solo-button">
     <img src="assets/logosolo.png" onclick="window.location.href='solo.html'">
   </div>
 
+  <!-- Personnage et plateforme en bas à droite -->
   <div class="personnage-hobby">
     <img src="assets/personnagehobby.png" alt="Personnage">
   </div>
