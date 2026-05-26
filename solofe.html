@@ -21,7 +21,7 @@
       align-items: center;
       height: 100vh;
     }
-    canvas { border: 4px solid #291515; }
+    canvas { border: none; display: block; }
 
     /* Les icônes en haut */
     .icon { cursor:pointer; width:105px; position:fixed; top:10px; }
@@ -156,6 +156,12 @@
     type: Phaser.AUTO,
     width: 800,
     height: 600,
+    scale: {
+      mode: Phaser.Scale.FIT,
+      autoCenter: Phaser.Scale.CENTER_BOTH,
+      width: 800,
+      height: 600
+    },
     physics: { default: 'arcade', arcade: { gravity:{y:300}, debug:false } },
     scene: { preload, create, update }
   };
