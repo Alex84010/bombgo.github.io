@@ -156,16 +156,24 @@
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    scale: {
-      mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
-      width: 800,
-      height: 600
-    },
     physics: { default: 'arcade', arcade: { gravity:{y:300}, debug:false } },
     scene: { preload, create, update }
   };
   new Phaser.Game(config);
+
+  // Redimensionne le canvas pour remplir l'écran sans déformer (ratio 800:600)
+  function resizeCanvas() {
+    var canvas = document.querySelector('canvas');
+    if (!canvas) return;
+    var scaleX = window.innerWidth  / 800;
+    var scaleY = window.innerHeight / 600;
+    var scale  = Math.min(scaleX, scaleY);
+    canvas.style.width  = (800 * scale) + 'px';
+    canvas.style.height = (600 * scale) + 'px';
+  }
+  // On attend que Phaser ait créé le canvas puis on redimensionne
+  setTimeout(resizeCanvas, 300);
+  window.addEventListener('resize', resizeCanvas);
 
   function preload(){
     this.load.image('sky','assets/sky.png');
